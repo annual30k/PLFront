@@ -2,7 +2,10 @@ import request from '@/utils/request';
 import { AxiosPromise } from 'axios';
 import {
   ControlPerson,
+  ControlPersonPayload,
+  ControlStatusResult,
   ControlVehicle,
+  ControlVehiclePayload,
   DashboardSummary,
   DispatchChannel,
   MessageResult,
@@ -12,6 +15,7 @@ import {
   PatrolAlert,
   PatrolDevice,
   PatrolDeviceCommand,
+  PatrolDeviceEvent,
   PatrolMedia,
   PatrolMediaAction,
   PatrolMessage,
@@ -51,6 +55,13 @@ export const sendDeviceCommand = (deviceId: string, command: string) => {
 export const listDeviceCommands = (): AxiosPromise<PatrolDeviceCommand[]> => {
   return request({
     url: '/patrol/devices/commands',
+    method: 'get'
+  });
+};
+
+export const listDeviceEvents = (): AxiosPromise<PatrolDeviceEvent[]> => {
+  return request({
+    url: '/patrol/devices/events',
     method: 'get'
   });
 };
@@ -148,10 +159,42 @@ export const listControlPersons = (): AxiosPromise<ControlPerson[]> => {
   });
 };
 
+export const createControlPerson = (data: ControlPersonPayload): AxiosPromise<ControlPerson> => {
+  return request({
+    url: '/patrol/control/persons',
+    method: 'post',
+    data
+  });
+};
+
+export const updateControlPersonStatus = (controlId: string, status: string): AxiosPromise<ControlStatusResult> => {
+  return request({
+    url: `/patrol/control/persons/${controlId}/status`,
+    method: 'patch',
+    data: { status }
+  });
+};
+
 export const listControlVehicles = (): AxiosPromise<ControlVehicle[]> => {
   return request({
     url: '/patrol/control/vehicles',
     method: 'get'
+  });
+};
+
+export const createControlVehicle = (data: ControlVehiclePayload): AxiosPromise<ControlVehicle> => {
+  return request({
+    url: '/patrol/control/vehicles',
+    method: 'post',
+    data
+  });
+};
+
+export const updateControlVehicleStatus = (controlId: string, status: string): AxiosPromise<ControlStatusResult> => {
+  return request({
+    url: `/patrol/control/vehicles/${controlId}/status`,
+    method: 'patch',
+    data: { status }
   });
 };
 

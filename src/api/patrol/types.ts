@@ -70,6 +70,16 @@ export interface PatrolDeviceCommand {
   ackAt: string;
 }
 
+export interface PatrolDeviceEvent {
+  eventId: string;
+  deviceId: string;
+  eventType: string;
+  eventLevel: string;
+  eventTitle: string;
+  eventDetail: string;
+  occurredAt: string;
+}
+
 export interface DispatchChannel {
   channelId: string;
   deviceId: string;
@@ -166,6 +176,15 @@ export interface ControlPerson {
   expiresAt: string;
 }
 
+export interface ControlPersonPayload {
+  name: string;
+  category: string;
+  idCardNo?: string;
+  riskLevel: string;
+  expiresAt: string;
+  remark?: string;
+}
+
 export interface ControlVehicle {
   controlId: string;
   plateNo: string;
@@ -174,6 +193,21 @@ export interface ControlVehicle {
   status: string;
   source: string;
   expiresAt: string;
+}
+
+export interface ControlVehiclePayload {
+  plateNo: string;
+  vehicleDesc: string;
+  vehicleType?: string;
+  riskLevel: string;
+  expiresAt: string;
+  remark?: string;
+}
+
+export interface ControlStatusResult {
+  controlId: string;
+  status: string;
+  message: string;
 }
 
 export interface PatrolMessage {

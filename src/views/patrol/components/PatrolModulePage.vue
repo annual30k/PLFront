@@ -187,6 +187,17 @@
           <el-table-column prop="ackAt" label="回执时间" width="170" />
         </el-table>
       </el-card>
+      <el-card shadow="never" class="mt-[12px]">
+        <template #header>设备事件日志</template>
+        <el-table :data="deviceEvents" border>
+          <el-table-column prop="occurredAt" label="发生时间" width="170" />
+          <el-table-column prop="deviceId" label="设备编号" width="130" />
+          <el-table-column prop="eventType" label="类型" width="120" />
+          <el-table-column prop="eventLevel" label="级别" width="90" />
+          <el-table-column prop="eventTitle" label="事件" width="150" />
+          <el-table-column prop="eventDetail" label="详情" min-width="220" show-overflow-tooltip />
+        </el-table>
+      </el-card>
     </template>
 
     <template v-else-if="module === 'media'">
@@ -237,25 +248,49 @@
       <el-row :gutter="12">
         <el-col :xs="24" :lg="12">
           <el-card shadow="never">
-            <template #header>人员布控</template>
+            <template #header>
+              <div class="card-toolbar">
+                <span>人员布控</span>
+                <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlPerson">新增人员</el-button>
+              </div>
+            </template>
             <el-table :data="controlPersons" border>
               <el-table-column prop="name" label="姓名" width="100" />
               <el-table-column prop="category" label="类别" width="110" />
               <el-table-column prop="riskLevel" label="风险" width="90" />
               <el-table-column prop="status" label="状态" width="100" />
               <el-table-column prop="source" label="来源" />
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="scope">
+                  <el-button link :type="scope.row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleControlPerson(scope.row)">
+                    {{ scope.row.status === 'ENABLED' ? '停用' : '启用' }}
+                  </el-button>
+                </template>
+              </el-table-column>
             </el-table>
           </el-card>
         </el-col>
         <el-col :xs="24" :lg="12">
           <el-card shadow="never">
-            <template #header>车辆布控</template>
+            <template #header>
+              <div class="card-toolbar">
+                <span>车辆布控</span>
+                <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlVehicle">新增车辆</el-button>
+              </div>
+            </template>
             <el-table :data="controlVehicles" border>
               <el-table-column prop="plateNo" label="车牌" width="110" />
               <el-table-column prop="vehicleDesc" label="车辆" />
               <el-table-column prop="riskLevel" label="风险" width="90" />
               <el-table-column prop="status" label="状态" width="100" />
               <el-table-column prop="source" label="来源" />
+              <el-table-column label="操作" width="90" fixed="right">
+                <template #default="scope">
+                  <el-button link :type="scope.row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleControlVehicle(scope.row)">
+                    {{ scope.row.status === 'ENABLED' ? '停用' : '启用' }}
+                  </el-button>
+                </template>
+              </el-table-column>
             </el-table>
           </el-card>
         </el-col>
@@ -385,11 +420,14 @@ import {
   acknowledgeAlert,
   closePatrolSos,
   closeAlert,
+  createControlPerson,
+  createControlVehicle,
   createDispatchSession,
   deletePatrolMedia,
   getPatrolDashboard,
   getStatisticsOverview,
   listDeviceCommands,
+  listDeviceEvents,
   listControlPersons,
   listControlVehicles,
   listDispatchChannels,
@@ -403,6 +441,8 @@ import {
   listSystemAuditLogs,
   sendPatrolMessage,
   sendDeviceCommand,
+  updateControlPersonStatus,
+  updateControlVehicleStatus,
   verifyPatrolMedia
 } from '@/api/patrol';
 import {
@@ -416,6 +456,7 @@ import {
   PatrolAlert,
   PatrolDevice,
   PatrolDeviceCommand,
+  PatrolDeviceEvent,
   PatrolMedia,
   PatrolMessage,
   PatrolSos,
@@ -431,6 +472,7 @@ const wallLayout = ref(8);
 const dashboard = ref<DashboardSummary>();
 const devices = ref<PatrolDevice[]>([]);
 const deviceCommands = ref<PatrolDeviceCommand[]>([]);
+const deviceEvents = ref<PatrolDeviceEvent[]>([]);
 const channels = ref<DispatchChannel[]>([]);
 const officers = ref<OfficerLocation[]>([]);
 const trackPoints = ref<OfficerTrackPoint[]>([]);
@@ -486,9 +528,10 @@ const loadData = async () => {
     } else if (props.module === 'alerts') {
       alerts.value = (await listPatrolAlerts()).data;
     } else if (props.module === 'devices') {
-      const [devicesRes, commandsRes] = await Promise.all([listPatrolDevices(), listDeviceCommands()]);
+      const [devicesRes, commandsRes, eventsRes] = await Promise.all([listPatrolDevices(), listDeviceCommands(), listDeviceEvents()]);
       devices.value = devicesRes.data;
       deviceCommands.value = commandsRes.data;
+      deviceEvents.value = eventsRes.data;
     } else if (props.module === 'media') {
       mediaFiles.value = (await listPatrolMedia()).data;
     } else if (props.module === 'sos') {
@@ -568,6 +611,45 @@ const handleCloseSos = async (sosId: string) => {
   } else {
     ElMessage.warning(result.message);
   }
+  await loadData();
+};
+
+const handleCreateControlPerson = async () => {
+  await createControlPerson({
+    name: `临控人员${Date.now().toString().slice(-4)}`,
+    category: '临控人员',
+    riskLevel: 'MEDIUM',
+    expiresAt: '2026-06-30',
+    remark: '平台端新增验证'
+  });
+  ElMessage.success('人员布控已新增');
+  await loadData();
+};
+
+const handleToggleControlPerson = async (row: ControlPerson) => {
+  const status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED';
+  const result = (await updateControlPersonStatus(row.controlId, status)).data;
+  ElMessage.success(result.message);
+  await loadData();
+};
+
+const handleCreateControlVehicle = async () => {
+  await createControlVehicle({
+    plateNo: `闽A${Date.now().toString().slice(-5)}`,
+    vehicleDesc: '平台端新增车辆',
+    vehicleType: 'SEDAN',
+    riskLevel: 'MEDIUM',
+    expiresAt: '2026-06-30',
+    remark: '平台端新增验证'
+  });
+  ElMessage.success('车辆布控已新增');
+  await loadData();
+};
+
+const handleToggleControlVehicle = async (row: ControlVehicle) => {
+  const status = row.status === 'ENABLED' ? 'DISABLED' : 'ENABLED';
+  const result = (await updateControlVehicleStatus(row.controlId, status)).data;
+  ElMessage.success(result.message);
   await loadData();
 };
 
