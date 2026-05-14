@@ -127,6 +127,17 @@ export interface PatrolAlert {
   occurredAt: string;
 }
 
+export interface PatrolAlertDisposition {
+  dispositionId: string;
+  alertId: string;
+  actionType: string;
+  actionResult: string;
+  operatorName: string;
+  note: string;
+  attachmentsCount: number;
+  occurredAt: string;
+}
+
 export interface PatrolMedia {
   fileId: string;
   fileName: string;
@@ -138,12 +149,67 @@ export interface PatrolMedia {
   verifyStatus: string;
   storagePath: string;
   capturedAt: string;
+  sha256?: string;
+  watermarkToken?: string;
+  mimeType?: string;
+  fileSizeBytes?: number;
+  contentUri?: string;
 }
 
 export interface PatrolMediaAction {
   fileId: string;
   status: string;
   message: string;
+}
+
+export interface PatrolMediaUploadTask {
+  taskId: string;
+  fileId: string;
+  fileName: string;
+  mediaType: string;
+  storageSide: string;
+  status: string;
+  uploadedChunks: number;
+  totalChunks: number;
+  uploadedChunkIndexes: number[];
+  uploadedBytes: number;
+  fileSizeBytes: number;
+  progress: number;
+  expectedSha256: string;
+  actualSha256: string;
+  errorMessage: string;
+  officerName: string;
+  deviceId: string;
+  createdAt: string;
+  completedAt: string;
+}
+
+export interface PatrolCleanupResult {
+  cleaned: number;
+  message: string;
+}
+
+export interface AppVersion {
+  versionId: string;
+  versionCode: number;
+  versionName: string;
+  forceUpdate: boolean;
+  changelog: string;
+  downloadUrl: string;
+  sha256: string;
+  fileId: string;
+  status: string;
+  publishedAt: string;
+}
+
+export interface AppVersionPayload {
+  versionCode: number;
+  versionName: string;
+  forceUpdate: boolean;
+  changelog: string;
+  downloadUrl?: string;
+  sha256?: string;
+  fileId?: string;
 }
 
 export interface PatrolSos {

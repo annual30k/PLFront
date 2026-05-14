@@ -1,6 +1,8 @@
 import request from '@/utils/request';
 import { AxiosPromise } from 'axios';
 import {
+  AppVersion,
+  AppVersionPayload,
   ControlPerson,
   ControlPersonPayload,
   ControlStatusResult,
@@ -13,11 +15,14 @@ import {
   OfficerLocation,
   OfficerTrackPoint,
   PatrolAlert,
+  PatrolAlertDisposition,
   PatrolDevice,
   PatrolDeviceCommand,
   PatrolDeviceEvent,
   PatrolMedia,
   PatrolMediaAction,
+  PatrolCleanupResult,
+  PatrolMediaUploadTask,
   PatrolMessage,
   PatrolSos,
   PatrolSosAction,
@@ -117,10 +122,31 @@ export const closeAlert = (alertId: string, result = 'RESOLVED', note = '') => {
   });
 };
 
+export const listAlertDispositions = (alertId: string): AxiosPromise<PatrolAlertDisposition[]> => {
+  return request({
+    url: `/patrol/alerts/${alertId}/dispositions`,
+    method: 'get'
+  });
+};
+
 export const listPatrolMedia = (): AxiosPromise<PatrolMedia[]> => {
   return request({
     url: '/patrol/media',
     method: 'get'
+  });
+};
+
+export const listPatrolMediaUploadTasks = (): AxiosPromise<PatrolMediaUploadTask[]> => {
+  return request({
+    url: '/patrol/media/upload-tasks',
+    method: 'get'
+  });
+};
+
+export const cleanPatrolMediaUploadTasks = (): AxiosPromise<PatrolCleanupResult> => {
+  return request({
+    url: '/patrol/media/upload-tasks/cleanup',
+    method: 'post'
   });
 };
 
@@ -135,6 +161,37 @@ export const deletePatrolMedia = (fileId: string): AxiosPromise<PatrolMediaActio
   return request({
     url: `/patrol/media/${fileId}`,
     method: 'delete'
+  });
+};
+
+export const downloadPatrolMedia = (fileId: string) => {
+  return request({
+    url: `/files/${fileId}/download`,
+    method: 'get',
+    responseType: 'blob'
+  });
+};
+
+export const listAppVersions = (): AxiosPromise<AppVersion[]> => {
+  return request({
+    url: '/patrol/versions',
+    method: 'get'
+  });
+};
+
+export const createAppVersion = (data: AppVersionPayload): AxiosPromise<AppVersion> => {
+  return request({
+    url: '/patrol/versions',
+    method: 'post',
+    data
+  });
+};
+
+export const updateAppVersionStatus = (versionId: string, status: string): AxiosPromise<AppVersion> => {
+  return request({
+    url: `/patrol/versions/${versionId}/status`,
+    method: 'patch',
+    data: { status }
   });
 };
 
