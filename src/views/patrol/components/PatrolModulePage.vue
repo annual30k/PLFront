@@ -77,12 +77,29 @@
               <el-space wrap>
                 <el-button size="small" icon="VideoPlay" @click="handleCreateSession(channel.deviceId)">连线</el-button>
                 <el-button size="small" icon="Camera" @click="handleDeviceCommand(channel.deviceId, 'TAKE_PHOTO')">拍照</el-button>
-                <el-button size="small" icon="Microphone">{{ channel.talking ? '对讲中' : '对讲' }}</el-button>
+                <el-button size="small" icon="Microphone" :type="channel.talking ? 'success' : 'primary'" @click="handleCreateIntercom(channel.deviceId)">
+                  {{ channel.talking ? '对讲中' : 'VoIP对讲' }}
+                </el-button>
               </el-space>
             </div>
           </el-col>
         </el-row>
       </el-card>
+      <el-dialog v-model="intercomDialogVisible" title="WebRTC/VoIP 对讲" width="620px">
+        <el-descriptions v-if="activeIntercomSession" :column="1" border>
+          <el-descriptions-item label="会话ID">{{ activeIntercomSession.sessionId }}</el-descriptions-item>
+          <el-descriptions-item label="设备">{{ activeIntercomSession.deviceId }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ activeIntercomSession.state }}</el-descriptions-item>
+          <el-descriptions-item label="音频路由">{{ activeIntercomSession.audioRoute }}</el-descriptions-item>
+          <el-descriptions-item label="信令">{{ activeIntercomSession.signalingUrl }}</el-descriptions-item>
+          <el-descriptions-item label="ICE">{{ activeIntercomSession.iceServers.join(', ') }}</el-descriptions-item>
+          <el-descriptions-item label="说明">{{ activeIntercomSession.message }}</el-descriptions-item>
+        </el-descriptions>
+        <template #footer>
+          <el-button @click="handleSendIntercomReady">发送测试信令</el-button>
+          <el-button type="danger" @click="handleCloseIntercom">关闭对讲</el-button>
+        </template>
+      </el-dialog>
     </template>
 
     <template v-else-if="module === 'map'">
@@ -182,14 +199,110 @@
           <el-table-column prop="firmwareVersion" label="固件" width="100" />
           <el-table-column prop="storageText" label="存储" width="110" />
           <el-table-column prop="workState" label="工作状态" width="140" />
-          <el-table-column label="操作" width="210" fixed="right">
+          <el-table-column label="操作" width="250" fixed="right">
             <template #default="scope">
+              <el-button link type="primary" @click="handleOpenDeviceConfig(scope.row.deviceId)">配置</el-button>
               <el-button link type="primary" @click="handleDeviceCommand(scope.row.deviceId, 'TAKE_PHOTO')">拍照</el-button>
               <el-button link type="primary" @click="handleCreateSession(scope.row.deviceId)">视频</el-button>
               <el-button link type="danger" @click="handleDeviceCommand(scope.row.deviceId, 'STOP_STREAM')">断开</el-button>
             </template>
           </el-table-column>
         </el-table>
+      </el-card>
+      <el-card shadow="never" class="mb-[12px]">
+        <template #header>
+          <div class="card-toolbar">
+            <span>设备能力与高级配置</span>
+            <el-tag v-if="selectedDeviceConfig" type="info">{{ selectedDeviceConfig.deviceId }}</el-tag>
+          </div>
+        </template>
+        <el-empty v-if="!selectedDeviceConfig" description="请选择设备配置" />
+        <template v-else>
+          <el-descriptions :column="3" border class="mb-[12px]">
+            <el-descriptions-item label="设备">{{ selectedDeviceConfig.deviceName }}</el-descriptions-item>
+            <el-descriptions-item label="警员">{{ selectedDeviceConfig.officerName }}</el-descriptions-item>
+            <el-descriptions-item label="部门">{{ selectedDeviceConfig.deptName }}</el-descriptions-item>
+            <el-descriptions-item label="实时音频">{{ selectedDeviceConfig.realtimeAudioSyncing ? '同步中' : '未同步' }}</el-descriptions-item>
+            <el-descriptions-item label="最近媒体同步">{{ selectedDeviceConfig.lastMediaSyncAt }}</el-descriptions-item>
+            <el-descriptions-item label="Wi-Fi">{{ selectedDeviceConfig.wifi.connected ? '已连接' : '未连接' }}</el-descriptions-item>
+          </el-descriptions>
+          <div class="capability-list">
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsGlasses ? 'success' : 'info'">眼镜</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsEarphone ? 'success' : 'info'">耳机</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsWifi ? 'success' : 'info'">Wi-Fi</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsFileTransfer ? 'success' : 'info'">文件传输</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsPhoto ? 'success' : 'info'">拍照</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsVideo ? 'success' : 'info'">视频</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsAudioRecord ? 'success' : 'info'">录音</el-tag>
+            <el-tag :type="selectedDeviceConfig.capabilities.supportsRealtimeAudio ? 'success' : 'info'">实时音频</el-tag>
+          </div>
+          <el-row :gutter="12" class="mt-[12px]">
+            <el-col :xs="24" :lg="10">
+              <el-form :model="deviceWifiForm" label-width="92px">
+                <el-form-item label="启用Wi-Fi">
+                  <el-switch v-model="deviceWifiForm.enabled" />
+                </el-form-item>
+                <el-form-item label="SSID">
+                  <el-input v-model="deviceWifiForm.ssid" />
+                </el-form-item>
+                <el-form-item label="密码状态">
+                  <el-switch v-model="deviceWifiForm.passwordConfigured" active-text="已配置" inactive-text="未配置" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleSaveDeviceWifi">保存 Wi-Fi</el-button>
+                </el-form-item>
+              </el-form>
+            </el-col>
+            <el-col :xs="24" :lg="14">
+              <el-form :model="deviceSettingsForm" label-width="96px">
+                <el-row :gutter="8">
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="视频宽度">
+                      <el-input-number v-model="deviceSettingsForm.videoWidth" :min="0" :step="40" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="视频高度">
+                      <el-input-number v-model="deviceSettingsForm.videoHeight" :min="0" :step="40" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="帧率">
+                      <el-input-number v-model="deviceSettingsForm.videoFrameRate" :min="1" :max="60" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-row :gutter="8">
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="录制秒数">
+                      <el-input-number v-model="deviceSettingsForm.recordingDurationSeconds" :min="10" :step="60" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="亮度">
+                      <el-input-number v-model="deviceSettingsForm.brightnessLevel" :min="1" :max="5" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :xs="24" :sm="8">
+                    <el-form-item label="竖屏录制">
+                      <el-switch v-model="deviceSettingsForm.verticalRecording" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-form-item label="增强音效">
+                  <el-switch v-model="deviceSettingsForm.enhancedSound" />
+                </el-form-item>
+                <el-space wrap>
+                  <el-button type="primary" @click="handleSaveDeviceSettings">保存高级设置</el-button>
+                  <el-button @click="handleToggleRealtimeAudio">
+                    {{ selectedDeviceConfig.realtimeAudioSyncing ? '停止实时音频' : '开启实时音频' }}
+                  </el-button>
+                  <el-button @click="handleMarkMediaSyncCompleted">标记媒体同步完成</el-button>
+                </el-space>
+              </el-form>
+            </el-col>
+          </el-row>
+        </template>
       </el-card>
       <el-card shadow="never">
         <template #header>最近指令</template>
@@ -296,11 +409,30 @@
           <el-table-column prop="status" label="状态" width="100" />
           <el-table-column prop="disposition" label="处置" width="130" />
           <el-table-column prop="backupEtaMinutes" label="增援 ETA" width="100" />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="260" fixed="right">
             <template #default="scope">
+              <el-button link type="primary" @click="handleLoadSosTimeline(scope.row.sosId)">流水</el-button>
+              <el-button link type="primary" @click="handleAssignSosBackup(scope.row.sosId)">增援</el-button>
+              <el-button link type="primary" @click="handleNotifySos(scope.row.sosId)">通知</el-button>
+              <el-button link type="primary" @click="handleAddSosRecording(scope.row.sosId)">录音</el-button>
+              <el-button link type="primary" @click="handleAddSosNote(scope.row.sosId)">备注</el-button>
               <el-button link type="success" @click="handleCloseSos(scope.row.sosId)">关闭</el-button>
             </template>
           </el-table-column>
+        </el-table>
+      </el-card>
+      <el-card shadow="never" class="mt-[12px]">
+        <template #header>处置时间线</template>
+        <el-table :data="sosTimeline" border>
+          <el-table-column prop="occurredAt" label="时间" width="170" />
+          <el-table-column prop="actionType" label="动作" width="130" />
+          <el-table-column prop="actionResult" label="结果" width="110" />
+          <el-table-column prop="operatorName" label="操作人" width="100" />
+          <el-table-column prop="contactName" label="联系人" width="100" />
+          <el-table-column prop="contactPhone" label="电话" width="130" />
+          <el-table-column prop="attachmentFileName" label="附件" width="150" show-overflow-tooltip />
+          <el-table-column prop="backupEtaMinutes" label="ETA" width="80" />
+          <el-table-column prop="note" label="说明" min-width="200" show-overflow-tooltip />
         </el-table>
       </el-card>
     </template>
@@ -312,7 +444,12 @@
             <template #header>
               <div class="card-toolbar">
                 <span>人员布控</span>
-                <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlPerson">新增人员</el-button>
+                <el-space>
+                  <el-upload :show-file-list="false" accept=".xlsx,.xls" :http-request="handleImportControlPersons">
+                    <el-button size="small" :loading="controlImportLoading">导入</el-button>
+                  </el-upload>
+                  <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlPerson">新增人员</el-button>
+                </el-space>
               </div>
             </template>
             <el-table :data="controlPersons" border>
@@ -320,12 +457,31 @@
               <el-table-column prop="category" label="类别" width="110" />
               <el-table-column prop="riskLevel" label="风险" width="90" />
               <el-table-column prop="status" label="状态" width="100" />
+              <el-table-column label="人脸底库" width="130">
+                <template #default="scope">
+                  <el-space v-if="scope.row.hasFaceImage" :size="6">
+                    <el-image class="face-thumb" :src="assetUrl(scope.row.faceImageUrl)" fit="cover" :preview-src-list="[assetUrl(scope.row.faceImageUrl)]" />
+                    <el-tag size="small" type="success">已入库</el-tag>
+                  </el-space>
+                  <el-tag v-else size="small" type="info">未上传</el-tag>
+                </template>
+              </el-table-column>
               <el-table-column prop="source" label="来源" />
-              <el-table-column label="操作" width="90" fixed="right">
+              <el-table-column label="操作" width="150" fixed="right">
                 <template #default="scope">
                   <el-button link :type="scope.row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleControlPerson(scope.row)">
                     {{ scope.row.status === 'ENABLED' ? '停用' : '启用' }}
                   </el-button>
+                  <el-upload
+                    class="inline-upload"
+                    :show-file-list="false"
+                    accept="image/*"
+                    :http-request="(options: any) => handleUploadControlPersonFace(scope.row, options)"
+                  >
+                    <el-button link type="primary" :loading="faceUploadLoading[scope.row.controlId]">
+                      {{ scope.row.hasFaceImage ? '换照片' : '传照片' }}
+                    </el-button>
+                  </el-upload>
                 </template>
               </el-table-column>
             </el-table>
@@ -336,7 +492,12 @@
             <template #header>
               <div class="card-toolbar">
                 <span>车辆布控</span>
-                <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlVehicle">新增车辆</el-button>
+                <el-space>
+                  <el-upload :show-file-list="false" accept=".xlsx,.xls" :http-request="handleImportControlVehicles">
+                    <el-button size="small" :loading="controlImportLoading">导入</el-button>
+                  </el-upload>
+                  <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlVehicle">新增车辆</el-button>
+                </el-space>
               </div>
             </template>
             <el-table :data="controlVehicles" border>
@@ -356,6 +517,20 @@
           </el-card>
         </el-col>
       </el-row>
+      <el-alert
+        v-if="controlImportResult"
+        class="mt-[12px]"
+        :type="controlImportResult.failed > 0 ? 'warning' : 'success'"
+        :title="controlImportResult.message"
+        show-icon
+        :closable="false"
+      >
+        <template v-if="controlImportResult.errors?.length" #default>
+          <div v-for="item in controlImportResult.errors.slice(0, 5)" :key="`${item.rowNo}-${item.reason}`">
+            第 {{ item.rowNo }} 行：{{ item.reason }}
+          </div>
+        </template>
+      </el-alert>
     </template>
 
     <template v-else-if="module === 'messages'">
@@ -393,9 +568,30 @@
           <el-table-column prop="targetName" label="目标" width="130" />
           <el-table-column prop="channel" label="通道" width="80" />
           <el-table-column prop="status" label="状态" width="90" />
+          <el-table-column label="已投递" width="90">
+            <template #default="scope">{{ scope.row.deliveredCount }}/{{ scope.row.totalCount }}</template>
+          </el-table-column>
           <el-table-column label="已读" width="90">
             <template #default="scope">{{ scope.row.readCount }}/{{ scope.row.totalCount }}</template>
           </el-table-column>
+          <el-table-column prop="pendingCount" label="待补偿" width="90" />
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click="handleLoadMessageReceipts(scope.row.messageId)">明细</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+      <el-card shadow="never" class="mt-[12px]">
+        <template #header>投递明细</template>
+        <el-table :data="messageReceipts" border>
+          <el-table-column prop="recipientId" label="接收人" width="120" />
+          <el-table-column prop="recipientName" label="姓名" width="110" />
+          <el-table-column prop="deviceId" label="设备" width="130" />
+          <el-table-column prop="deliveryStatus" label="状态" width="110" />
+          <el-table-column prop="deliveredAt" label="投递时间" width="170" />
+          <el-table-column prop="readAt" label="已读时间" width="170" />
+          <el-table-column prop="lastPullAt" label="最近拉取" width="170" />
         </el-table>
       </el-card>
     </template>
@@ -475,6 +671,11 @@
               <el-form-item label="强制更新">
                 <el-switch v-model="versionForm.forceUpdate" />
               </el-form-item>
+              <el-form-item label="APK">
+                <el-upload :show-file-list="false" accept=".apk" :http-request="handleUploadVersionPackage">
+                  <el-button :loading="versionUploadLoading" icon="UploadFilled">上传安装包</el-button>
+                </el-upload>
+              </el-form-item>
               <el-form-item label="下载地址">
                 <el-input v-model="versionForm.downloadUrl" />
               </el-form-item>
@@ -530,8 +731,14 @@
 
 <script setup lang="ts">
 import {
+  addPatrolSosNote,
+  addPatrolSosRecording,
   acknowledgeAlert,
+  applyDeviceSettings,
+  assignPatrolSosBackup,
   cleanPatrolMediaUploadTasks,
+  closeIntercomSession,
+  configureDeviceWifi,
   listAlertDispositions,
   closePatrolSos,
   closeAlert,
@@ -539,11 +746,16 @@ import {
   createControlPerson,
   createControlVehicle,
   createDispatchSession,
+  createIntercomSession,
   deletePatrolMedia,
   downloadPatrolMedia,
   getPatrolDashboard,
   getStatisticsOverview,
+  getDeviceConfig,
+  importControlPersons,
+  importControlVehicles,
   listDeviceCommands,
+  listDeviceConfigs,
   listDeviceEvents,
   listAppVersions,
   listControlPersons,
@@ -554,23 +766,37 @@ import {
   listPatrolAlerts,
   listPatrolDevices,
   listPatrolMedia,
+  listPatrolMessageReceipts,
   listPatrolMediaUploadTasks,
   listPatrolMessages,
   listPatrolSos,
+  listPatrolSosTimeline,
   listSystemAuditLogs,
+  markDeviceMediaSyncCompleted,
+  notifyPatrolSosContact,
   sendPatrolMessage,
   sendDeviceCommand,
+  sendIntercomSignal,
+  startDeviceRealtimeAudio,
+  stopDeviceRealtimeAudio,
   updateControlPersonStatus,
   updateAppVersionStatus,
   updateControlVehicleStatus,
+  uploadControlPersonFaceImage,
+  uploadAppVersionPackage,
   verifyPatrolMedia
 } from '@/api/patrol';
 import {
   AppVersion,
   ControlPerson,
+  ControlImportResult,
   ControlVehicle,
   DashboardSummary,
+  DeviceAdvancedSettings,
+  DeviceConfig,
+  DeviceWifiState,
   DispatchChannel,
+  IntercomSession,
   ModuleKey,
   OfficerLocation,
   OfficerTrackPoint,
@@ -582,7 +808,9 @@ import {
   PatrolMedia,
   PatrolMediaUploadTask,
   PatrolMessage,
+  PatrolMessageReceipt,
   PatrolSos,
+  PatrolSosTimeline,
   StatisticsOverview,
   SystemAuditLog
 } from '@/api/patrol/types';
@@ -595,9 +823,13 @@ const loading = ref(false);
 const wallLayout = ref(8);
 const dashboard = ref<DashboardSummary>();
 const devices = ref<PatrolDevice[]>([]);
+const deviceConfigs = ref<DeviceConfig[]>([]);
+const selectedDeviceConfig = ref<DeviceConfig>();
 const deviceCommands = ref<PatrolDeviceCommand[]>([]);
 const deviceEvents = ref<PatrolDeviceEvent[]>([]);
 const channels = ref<DispatchChannel[]>([]);
+const activeIntercomSession = ref<IntercomSession>();
+const intercomDialogVisible = ref(false);
 const officers = ref<OfficerLocation[]>([]);
 const trackPoints = ref<OfficerTrackPoint[]>([]);
 const alerts = ref<PatrolAlert[]>([]);
@@ -605,12 +837,33 @@ const alertDispositions = ref<PatrolAlertDisposition[]>([]);
 const mediaFiles = ref<PatrolMedia[]>([]);
 const mediaUploadTasks = ref<PatrolMediaUploadTask[]>([]);
 const sosEvents = ref<PatrolSos[]>([]);
+const sosTimeline = ref<PatrolSosTimeline[]>([]);
 const controlPersons = ref<ControlPerson[]>([]);
 const controlVehicles = ref<ControlVehicle[]>([]);
+const controlImportResult = ref<ControlImportResult>();
+const controlImportLoading = ref(false);
+const faceUploadLoading = ref<Record<string, boolean>>({});
 const messages = ref<PatrolMessage[]>([]);
+const messageReceipts = ref<PatrolMessageReceipt[]>([]);
 const statistics = ref<StatisticsOverview>();
 const auditLogs = ref<SystemAuditLog[]>([]);
 const appVersions = ref<AppVersion[]>([]);
+const versionUploadLoading = ref(false);
+const deviceWifiForm = reactive<DeviceWifiState>({
+  enabled: false,
+  ssid: '',
+  passwordConfigured: false,
+  connected: false
+});
+const deviceSettingsForm = reactive<DeviceAdvancedSettings>({
+  videoWidth: 240,
+  videoHeight: 0,
+  videoFrameRate: 16,
+  recordingDurationSeconds: 86400,
+  verticalRecording: true,
+  enhancedSound: true,
+  brightnessLevel: 2
+});
 const messageForm = reactive({
   targetType: 'SINGLE',
   targetId: 'POLICE_9527',
@@ -621,8 +874,9 @@ const versionForm = reactive({
   versionCode: 3,
   versionName: '1.3.0',
   forceUpdate: false,
-  downloadUrl: 'https://example.test/patrollink/PatrolLink-1.3.0.apk',
+  downloadUrl: '',
   sha256: '',
+  fileId: '',
   changelog: '对接平台端版本包管理\n优化媒体上传状态同步'
 });
 const mapContainer = ref<HTMLDivElement>();
@@ -641,13 +895,13 @@ const mediaPreview = reactive({
 
 const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
   dashboard: { title: '指挥工作台', desc: '聚合在线警力、设备、视频会话、预警、SOS 与媒体上传状态。' },
-  dispatch: { title: '指挥调度', desc: '支持 2/4/8/12/16 路视频墙、单点连线、截图、对讲和设备指令下发。' },
+  dispatch: { title: '指挥调度', desc: '视频墙保留，实时对讲走 WebRTC/VoIP，App 使用系统蓝牙 Headset/SCO/A2DP 作为麦克风和扬声器。' },
   map: { title: '警力一张图', desc: '基于高德地图接入实时位置，设备最新点按 3 秒周期刷新。' },
   alerts: { title: '布控预警', desc: '接收第三方人脸比对和车牌 OCR 结果，形成预警处置闭环。' },
   devices: { title: '设备管理', desc: '管理智能执法耳机台账、绑定关系、在线状态、电量、固件和指令。' },
   media: { title: '媒体证据', desc: '管理图片、视频、音频、SOS 录音和处置附件，后续接入 MinIO。' },
   sos: { title: 'SOS 求助', desc: '实时接收一键求助、定位、录音状态、增援 ETA 和处置结果。' },
-  control: { title: '人员车辆布控', desc: '维护人员/车辆布控任务，预留本地重点库同步接口。' },
+  control: { title: '人员车辆布控', desc: '维护人员/车辆布控任务，重点人员人脸底库自动同步到边缘小脑。' },
   messages: { title: '消息通知', desc: '向警员、设备或组织发送指挥消息，并查看消息送达状态。' },
   statistics: { title: '统计分析', desc: '基于设备、预警、SOS、媒体和指令流水沉淀运行指标。' },
   audit: { title: '审计日志', desc: '记录关键指挥操作、业务资源、操作人和链路追踪信息。' },
@@ -657,6 +911,17 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
 const pageTitle = computed(() => pageMeta[props.module].title);
 const pageDesc = computed(() => pageMeta[props.module].desc);
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+
+const assetUrl = (url?: string) => {
+  if (!url) {
+    return '';
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  const baseApi = import.meta.env.VITE_APP_BASE_API || '';
+  return `${baseApi}${url.startsWith('/') ? url : `/${url}`}`;
+};
 
 const realtimeRefreshModules: Record<string, ModuleKey[]> = {
   DEVICE_STATUS: ['dashboard', 'devices', 'statistics'],
@@ -717,22 +982,44 @@ const loadData = async () => {
         alertDispositions.value = (await listAlertDispositions(alerts.value[0].alertId)).data;
       }
     } else if (props.module === 'devices') {
-      const [devicesRes, commandsRes, eventsRes] = await Promise.all([listPatrolDevices(), listDeviceCommands(), listDeviceEvents()]);
+      const [devicesRes, configsRes, commandsRes, eventsRes] = await Promise.all([
+        listPatrolDevices(),
+        listDeviceConfigs(),
+        listDeviceCommands(),
+        listDeviceEvents()
+      ]);
       devices.value = devicesRes.data;
+      deviceConfigs.value = configsRes.data;
       deviceCommands.value = commandsRes.data;
       deviceEvents.value = eventsRes.data;
+      const selected = selectedDeviceConfig.value
+        ? deviceConfigs.value.find((item) => item.deviceId === selectedDeviceConfig.value?.deviceId)
+        : deviceConfigs.value[0];
+      if (selected) {
+        applySelectedDeviceConfig(selected);
+      }
     } else if (props.module === 'media') {
       const [mediaRes, uploadTasksRes] = await Promise.all([listPatrolMedia(), listPatrolMediaUploadTasks()]);
       mediaFiles.value = mediaRes.data;
       mediaUploadTasks.value = uploadTasksRes.data;
     } else if (props.module === 'sos') {
       sosEvents.value = (await listPatrolSos()).data;
+      if (sosEvents.value.length > 0) {
+        sosTimeline.value = (await listPatrolSosTimeline(sosEvents.value[0].sosId)).data;
+      } else {
+        sosTimeline.value = [];
+      }
     } else if (props.module === 'control') {
       const [personsRes, vehiclesRes] = await Promise.all([listControlPersons(), listControlVehicles()]);
       controlPersons.value = personsRes.data;
       controlVehicles.value = vehiclesRes.data;
     } else if (props.module === 'messages') {
       messages.value = (await listPatrolMessages()).data;
+      if (messages.value.length > 0) {
+        messageReceipts.value = (await listPatrolMessageReceipts(messages.value[0].messageId)).data;
+      } else {
+        messageReceipts.value = [];
+      }
     } else if (props.module === 'statistics') {
       statistics.value = (await getStatisticsOverview()).data;
     } else if (props.module === 'audit') {
@@ -743,6 +1030,67 @@ const loadData = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+const applySelectedDeviceConfig = (config: DeviceConfig) => {
+  selectedDeviceConfig.value = config;
+  Object.assign(deviceWifiForm, config.wifi);
+  Object.assign(deviceSettingsForm, config.settings);
+};
+
+const handleOpenDeviceConfig = async (deviceId: string) => {
+  const config = (await getDeviceConfig(deviceId)).data;
+  applySelectedDeviceConfig(config);
+};
+
+const refreshSelectedDeviceConfig = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  const config = (await getDeviceConfig(selectedDeviceConfig.value.deviceId)).data;
+  applySelectedDeviceConfig(config);
+};
+
+const handleSaveDeviceWifi = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  const config = (await configureDeviceWifi(selectedDeviceConfig.value.deviceId, { ...deviceWifiForm })).data;
+  applySelectedDeviceConfig(config);
+  ElMessage.success('设备 Wi-Fi 已保存');
+  await loadData();
+};
+
+const handleSaveDeviceSettings = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  const config = (await applyDeviceSettings(selectedDeviceConfig.value.deviceId, { ...deviceSettingsForm })).data;
+  applySelectedDeviceConfig(config);
+  ElMessage.success('高级设置已保存');
+  await loadData();
+};
+
+const handleToggleRealtimeAudio = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  const result = selectedDeviceConfig.value.realtimeAudioSyncing
+    ? (await stopDeviceRealtimeAudio(selectedDeviceConfig.value.deviceId)).data
+    : (await startDeviceRealtimeAudio(selectedDeviceConfig.value.deviceId)).data;
+  ElMessage.success(result.message);
+  await refreshSelectedDeviceConfig();
+  await loadData();
+};
+
+const handleMarkMediaSyncCompleted = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  const result = (await markDeviceMediaSyncCompleted(selectedDeviceConfig.value.deviceId)).data;
+  ElMessage.success(result.message);
+  await refreshSelectedDeviceConfig();
+  await loadData();
 };
 
 const handleDeviceCommand = async (deviceId: string, command: string) => {
@@ -756,6 +1104,31 @@ const handleDeviceCommand = async (deviceId: string, command: string) => {
 const handleCreateSession = async (deviceId: string) => {
   await createDispatchSession(deviceId);
   ElMessage.success('调度会话已创建');
+};
+
+const handleCreateIntercom = async (deviceId: string) => {
+  activeIntercomSession.value = (await createIntercomSession(deviceId)).data;
+  intercomDialogVisible.value = true;
+  ElMessage.success('WebRTC/VoIP 对讲会话已创建，等待 App 接入');
+  await loadData();
+};
+
+const handleSendIntercomReady = async () => {
+  if (!activeIntercomSession.value) {
+    return;
+  }
+  await sendIntercomSignal(activeIntercomSession.value.sessionId, 'ready', JSON.stringify({ side: 'WEB' }));
+  ElMessage.success('测试信令已发送');
+};
+
+const handleCloseIntercom = async () => {
+  if (!activeIntercomSession.value) {
+    return;
+  }
+  activeIntercomSession.value = (await closeIntercomSession(activeIntercomSession.value.sessionId)).data;
+  intercomDialogVisible.value = false;
+  ElMessage.success('对讲会话已关闭');
+  await loadData();
 };
 
 const handleAck = async (alertId: string) => {
@@ -778,6 +1151,10 @@ const handleSendMessage = async () => {
   await sendPatrolMessage({ ...messageForm });
   ElMessage.success('指挥消息已发送');
   await loadData();
+};
+
+const handleLoadMessageReceipts = async (messageId: string) => {
+  messageReceipts.value = (await listPatrolMessageReceipts(messageId)).data;
 };
 
 const handleLoadTrack = async (badgeNo: string) => {
@@ -828,6 +1205,54 @@ const handleCleanUploadTasks = async () => {
   await loadData();
 };
 
+const handleLoadSosTimeline = async (sosId: string) => {
+  sosTimeline.value = (await listPatrolSosTimeline(sosId)).data;
+};
+
+const handleAssignSosBackup = async (sosId: string) => {
+  const result = (
+    await assignPatrolSosBackup(sosId, {
+      contactName: '巡逻组 A-42',
+      contactPhone: '110-PTL-A42',
+      backupEtaMinutes: 5,
+      note: '已指派最近警力前往增援'
+    })
+  ).data;
+  ElMessage.success(result.message);
+  await handleLoadSosTimeline(sosId);
+  await loadData();
+};
+
+const handleNotifySos = async (sosId: string) => {
+  const result = (
+    await notifyPatrolSosContact(sosId, {
+      contactName: '值班指挥员',
+      contactPhone: '0591-110000',
+      note: '已同步SOS位置和现场状态'
+    })
+  ).data;
+  ElMessage.success(result.message);
+  await handleLoadSosTimeline(sosId);
+};
+
+const handleAddSosRecording = async (sosId: string) => {
+  const result = (
+    await addPatrolSosRecording(sosId, {
+      fileId: `SOS-AUD-${Date.now()}`,
+      fileName: 'SOS现场录音.m4a',
+      note: '已关联端侧SOS录音附件'
+    })
+  ).data;
+  ElMessage.success(result.message);
+  await handleLoadSosTimeline(sosId);
+};
+
+const handleAddSosNote = async (sosId: string) => {
+  const result = (await addPatrolSosNote(sosId, '平台端补充处置记录')).data;
+  ElMessage.success(result.message);
+  await handleLoadSosTimeline(sosId);
+};
+
 const handleCloseSos = async (sosId: string) => {
   const result = (await closePatrolSos(sosId)).data;
   if (result.status === 'CLOSED') {
@@ -835,7 +1260,38 @@ const handleCloseSos = async (sosId: string) => {
   } else {
     ElMessage.warning(result.message);
   }
+  await handleLoadSosTimeline(sosId);
   await loadData();
+};
+
+const handleControlImportResult = async (result: ControlImportResult) => {
+  controlImportResult.value = result;
+  if (result.failed > 0) {
+    ElMessage.warning(result.message);
+  } else {
+    ElMessage.success(result.message);
+  }
+  await loadData();
+};
+
+const handleImportControlPersons = async (options: any) => {
+  controlImportLoading.value = true;
+  try {
+    const result = (await importControlPersons(options.file)).data;
+    await handleControlImportResult(result);
+  } finally {
+    controlImportLoading.value = false;
+  }
+};
+
+const handleImportControlVehicles = async (options: any) => {
+  controlImportLoading.value = true;
+  try {
+    const result = (await importControlVehicles(options.file)).data;
+    await handleControlImportResult(result);
+  } finally {
+    controlImportLoading.value = false;
+  }
 };
 
 const handleCreateControlPerson = async () => {
@@ -855,6 +1311,17 @@ const handleToggleControlPerson = async (row: ControlPerson) => {
   const result = (await updateControlPersonStatus(row.controlId, status)).data;
   ElMessage.success(result.message);
   await loadData();
+};
+
+const handleUploadControlPersonFace = async (row: ControlPerson, options: any) => {
+  faceUploadLoading.value[row.controlId] = true;
+  try {
+    await uploadControlPersonFaceImage(row.controlId, options.file);
+    ElMessage.success('人脸底库照片已上传，下一轮小脑同步会自动下发');
+    await loadData();
+  } finally {
+    faceUploadLoading.value[row.controlId] = false;
+  }
 };
 
 const handleCreateControlVehicle = async () => {
@@ -881,6 +1348,32 @@ const handleCreateVersion = async () => {
   await createAppVersion({ ...versionForm });
   ElMessage.success('App 版本已发布');
   await loadData();
+};
+
+const handleUploadVersionPackage = async (options: any) => {
+  const file = options.file as File;
+  if (!file.name.toLowerCase().endsWith('.apk')) {
+    ElMessage.warning('请上传 APK 安装包');
+    options.onError?.(new Error('invalid apk package'));
+    return;
+  }
+  versionUploadLoading.value = true;
+  try {
+    const result = (await uploadAppVersionPackage(file)).data;
+    versionForm.downloadUrl = result.downloadUrl;
+    versionForm.sha256 = result.sha256;
+    versionForm.fileId = result.fileId;
+    if (!versionForm.versionName || versionForm.versionName === '1.3.0') {
+      versionForm.versionName = file.name.replace(/\\.apk$/i, '');
+    }
+    ElMessage.success(`安装包已上传：${result.sizeText}`);
+    options.onSuccess?.(result);
+  } catch (error) {
+    options.onError?.(error);
+    throw error;
+  } finally {
+    versionUploadLoading.value = false;
+  }
 };
 
 const handleToggleVersion = async (row: AppVersion) => {
@@ -1054,6 +1547,23 @@ onBeforeUnmount(() => {
 
 .metric-info {
   color: #4b5563;
+}
+
+.capability-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.face-thumb {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+
+.inline-upload {
+  display: inline-flex;
 }
 
 .video-tile {

@@ -59,6 +59,53 @@ export interface PatrolDevice {
   lastOnlineTime: string;
 }
 
+export interface DeviceCapabilities {
+  supportsGlasses: boolean;
+  supportsEarphone: boolean;
+  supportsWifi: boolean;
+  supportsFileTransfer: boolean;
+  supportsPhoto: boolean;
+  supportsVideo: boolean;
+  supportsAudioRecord: boolean;
+  supportsRealtimeAudio: boolean;
+}
+
+export interface DeviceWifiState {
+  enabled: boolean;
+  ssid: string;
+  passwordConfigured: boolean;
+  connected: boolean;
+}
+
+export interface DeviceAdvancedSettings {
+  videoWidth: number;
+  videoHeight: number;
+  videoFrameRate: number;
+  recordingDurationSeconds: number;
+  verticalRecording: boolean;
+  enhancedSound: boolean;
+  brightnessLevel: number;
+}
+
+export interface DeviceConfig {
+  deviceId: string;
+  deviceName: string;
+  officerName: string;
+  badgeNo: string;
+  deptName: string;
+  capabilities: DeviceCapabilities;
+  wifi: DeviceWifiState;
+  settings: DeviceAdvancedSettings;
+  realtimeAudioSyncing: boolean;
+  lastMediaSyncAt: string;
+}
+
+export interface DeviceControlResult {
+  success: boolean;
+  state: string;
+  message: string;
+}
+
 export interface PatrolDeviceCommand {
   commandId: string;
   deviceId: string;
@@ -90,6 +137,28 @@ export interface DispatchChannel {
   latencyMs: number;
   locationText: string;
   talking: boolean;
+}
+
+export interface IntercomSession {
+  sessionId: string;
+  deviceId: string;
+  state: string;
+  mode: string;
+  signalingUrl: string;
+  audioRoute: string;
+  iceServers: string[];
+  startedAt: number;
+  expiresAt: number;
+  message: string;
+}
+
+export interface IntercomSignal {
+  signalId: string;
+  sessionId: string;
+  sender: string;
+  type: string;
+  payload: string;
+  timestamp: number;
 }
 
 export interface OfficerLocation {
@@ -202,6 +271,15 @@ export interface AppVersion {
   publishedAt: string;
 }
 
+export interface AppVersionPackage {
+  fileId: string;
+  fileName: string;
+  downloadUrl: string;
+  sha256: string;
+  fileSizeBytes: number;
+  sizeText: string;
+}
+
 export interface AppVersionPayload {
   versionCode: number;
   versionName: string;
@@ -232,6 +310,21 @@ export interface PatrolSosAction {
   message: string;
 }
 
+export interface PatrolSosTimeline {
+  dispositionId: string;
+  sosId: string;
+  actionType: string;
+  actionResult: string;
+  operatorName: string;
+  note: string;
+  contactName?: string;
+  contactPhone?: string;
+  attachmentFileId?: string;
+  attachmentFileName?: string;
+  backupEtaMinutes?: number;
+  occurredAt: string;
+}
+
 export interface ControlPerson {
   controlId: string;
   name: string;
@@ -240,6 +333,10 @@ export interface ControlPerson {
   status: string;
   source: string;
   expiresAt: string;
+  faceImageUrl?: string;
+  faceImageSha256?: string;
+  faceUpdatedAt?: string;
+  hasFaceImage?: boolean;
 }
 
 export interface ControlPersonPayload {
@@ -249,6 +346,15 @@ export interface ControlPersonPayload {
   riskLevel: string;
   expiresAt: string;
   remark?: string;
+  faceImageUrl?: string;
+  faceImageSha256?: string;
+}
+
+export interface ControlPersonFaceImage {
+  controlId: string;
+  faceImageUrl: string;
+  faceImageSha256: string;
+  faceUpdatedAt: string;
 }
 
 export interface ControlVehicle {
@@ -276,6 +382,20 @@ export interface ControlStatusResult {
   message: string;
 }
 
+export interface ControlImportError {
+  rowNo: number;
+  reason: string;
+}
+
+export interface ControlImportResult {
+  taskId: string;
+  total: number;
+  success: number;
+  failed: number;
+  message: string;
+  errors: ControlImportError[];
+}
+
 export interface PatrolMessage {
   messageId: string;
   title: string;
@@ -284,9 +404,23 @@ export interface PatrolMessage {
   targetName: string;
   channel: string;
   status: string;
+  deliveredCount: number;
+  pendingCount: number;
   readCount: number;
   totalCount: number;
   sentAt: string;
+}
+
+export interface PatrolMessageReceipt {
+  receiptId: string;
+  messageId: string;
+  recipientId: string;
+  recipientName: string;
+  deviceId: string;
+  deliveryStatus: string;
+  deliveredAt: string;
+  readAt: string;
+  lastPullAt: string;
 }
 
 export interface MessageSendPayload {

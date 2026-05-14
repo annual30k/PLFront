@@ -2,14 +2,23 @@ import request from '@/utils/request';
 import { AxiosPromise } from 'axios';
 import {
   AppVersion,
+  AppVersionPackage,
   AppVersionPayload,
   ControlPerson,
+  ControlPersonFaceImage,
   ControlPersonPayload,
+  ControlImportResult,
   ControlStatusResult,
   ControlVehicle,
   ControlVehiclePayload,
   DashboardSummary,
+  DeviceAdvancedSettings,
+  DeviceConfig,
+  DeviceControlResult,
+  DeviceWifiState,
   DispatchChannel,
+  IntercomSession,
+  IntercomSignal,
   MessageResult,
   MessageSendPayload,
   OfficerLocation,
@@ -24,8 +33,10 @@ import {
   PatrolCleanupResult,
   PatrolMediaUploadTask,
   PatrolMessage,
+  PatrolMessageReceipt,
   PatrolSos,
   PatrolSosAction,
+  PatrolSosTimeline,
   StatisticsOverview,
   SystemAuditLog,
   SystemCapability
@@ -42,6 +53,57 @@ export const listPatrolDevices = (): AxiosPromise<PatrolDevice[]> => {
   return request({
     url: '/patrol/devices',
     method: 'get'
+  });
+};
+
+export const listDeviceConfigs = (): AxiosPromise<DeviceConfig[]> => {
+  return request({
+    url: '/patrol/devices/configs',
+    method: 'get'
+  });
+};
+
+export const getDeviceConfig = (deviceId: string): AxiosPromise<DeviceConfig> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/config`,
+    method: 'get'
+  });
+};
+
+export const configureDeviceWifi = (deviceId: string, data: DeviceWifiState): AxiosPromise<DeviceConfig> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/wifi`,
+    method: 'post',
+    data
+  });
+};
+
+export const applyDeviceSettings = (deviceId: string, data: DeviceAdvancedSettings): AxiosPromise<DeviceConfig> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/settings`,
+    method: 'post',
+    data
+  });
+};
+
+export const startDeviceRealtimeAudio = (deviceId: string): AxiosPromise<DeviceControlResult> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/realtime-audio/start`,
+    method: 'post'
+  });
+};
+
+export const stopDeviceRealtimeAudio = (deviceId: string): AxiosPromise<DeviceControlResult> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/realtime-audio/stop`,
+    method: 'post'
+  });
+};
+
+export const markDeviceMediaSyncCompleted = (deviceId: string): AxiosPromise<DeviceControlResult> => {
+  return request({
+    url: `/patrol/devices/${deviceId}/media-sync/completed`,
+    method: 'post'
   });
 };
 
@@ -83,6 +145,45 @@ export const createDispatchSession = (deviceId: string, mode = 'LOW_LATENCY') =>
     url: '/patrol/dispatch/sessions',
     method: 'post',
     data: { deviceId, mode }
+  });
+};
+
+export const createIntercomSession = (deviceId: string, mode = 'FULL_DUPLEX'): AxiosPromise<IntercomSession> => {
+  return request({
+    url: '/patrol/dispatch/intercom/sessions',
+    method: 'post',
+    data: {
+      deviceId,
+      mode,
+      initiatorId: 'web-console'
+    }
+  });
+};
+
+export const closeIntercomSession = (sessionId: string): AxiosPromise<IntercomSession> => {
+  return request({
+    url: `/patrol/dispatch/intercom/sessions/${sessionId}/close`,
+    method: 'post'
+  });
+};
+
+export const sendIntercomSignal = (sessionId: string, type: string, payload = ''): AxiosPromise<IntercomSignal> => {
+  return request({
+    url: `/patrol/dispatch/intercom/sessions/${sessionId}/signals`,
+    method: 'post',
+    data: {
+      sender: 'WEB',
+      type,
+      payload
+    }
+  });
+};
+
+export const listIntercomSignals = (sessionId: string, afterSignalId = ''): AxiosPromise<IntercomSignal[]> => {
+  return request({
+    url: `/patrol/dispatch/intercom/sessions/${sessionId}/signals`,
+    method: 'get',
+    params: { afterSignalId }
   });
 };
 
@@ -187,6 +288,17 @@ export const createAppVersion = (data: AppVersionPayload): AxiosPromise<AppVersi
   });
 };
 
+export const uploadAppVersionPackage = (file: File): AxiosPromise<AppVersionPackage> => {
+  const data = new FormData();
+  data.append('file', file);
+  return request({
+    url: '/patrol/versions/upload',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
 export const updateAppVersionStatus = (versionId: string, status: string): AxiosPromise<AppVersion> => {
   return request({
     url: `/patrol/versions/${versionId}/status`,
@@ -199,6 +311,51 @@ export const listPatrolSos = (): AxiosPromise<PatrolSos[]> => {
   return request({
     url: '/patrol/sos',
     method: 'get'
+  });
+};
+
+export const listPatrolSosTimeline = (sosId: string): AxiosPromise<PatrolSosTimeline[]> => {
+  return request({
+    url: `/patrol/sos/${sosId}/timeline`,
+    method: 'get'
+  });
+};
+
+export const assignPatrolSosBackup = (
+  sosId: string,
+  data: { contactName: string; contactPhone: string; backupEtaMinutes: number; note: string }
+): AxiosPromise<PatrolSosAction> => {
+  return request({
+    url: `/patrol/sos/${sosId}/backup`,
+    method: 'post',
+    data
+  });
+};
+
+export const addPatrolSosRecording = (sosId: string, data: { fileId: string; fileName: string; note: string }): AxiosPromise<PatrolSosAction> => {
+  return request({
+    url: `/patrol/sos/${sosId}/recordings`,
+    method: 'post',
+    data
+  });
+};
+
+export const notifyPatrolSosContact = (
+  sosId: string,
+  data: { contactName: string; contactPhone: string; note: string }
+): AxiosPromise<PatrolSosAction> => {
+  return request({
+    url: `/patrol/sos/${sosId}/notify`,
+    method: 'post',
+    data
+  });
+};
+
+export const addPatrolSosNote = (sosId: string, note: string): AxiosPromise<PatrolSosAction> => {
+  return request({
+    url: `/patrol/sos/${sosId}/notes`,
+    method: 'post',
+    data: { note }
   });
 };
 
@@ -232,6 +389,39 @@ export const updateControlPersonStatus = (controlId: string, status: string): Ax
   });
 };
 
+export const updateControlPersonFaceImage = (
+  controlId: string,
+  data: { faceImageUrl: string; faceImageSha256?: string }
+): AxiosPromise<ControlPerson> => {
+  return request({
+    url: `/patrol/control/persons/${controlId}/face-image`,
+    method: 'patch',
+    data
+  });
+};
+
+export const uploadControlPersonFaceImage = (controlId: string, file: File): AxiosPromise<ControlPersonFaceImage> => {
+  const data = new FormData();
+  data.append('file', file);
+  return request({
+    url: `/patrol/control/persons/${controlId}/face-image/upload`,
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const importControlPersons = (file: File): AxiosPromise<ControlImportResult> => {
+  const data = new FormData();
+  data.append('file', file);
+  return request({
+    url: '/patrol/control/persons/import',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
 export const listControlVehicles = (): AxiosPromise<ControlVehicle[]> => {
   return request({
     url: '/patrol/control/vehicles',
@@ -255,9 +445,27 @@ export const updateControlVehicleStatus = (controlId: string, status: string): A
   });
 };
 
+export const importControlVehicles = (file: File): AxiosPromise<ControlImportResult> => {
+  const data = new FormData();
+  data.append('file', file);
+  return request({
+    url: '/patrol/control/vehicles/import',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
 export const listPatrolMessages = (): AxiosPromise<PatrolMessage[]> => {
   return request({
     url: '/patrol/messages',
+    method: 'get'
+  });
+};
+
+export const listPatrolMessageReceipts = (messageId: string): AxiosPromise<PatrolMessageReceipt[]> => {
+  return request({
+    url: `/patrol/messages/${messageId}/receipts`,
     method: 'get'
   });
 };
