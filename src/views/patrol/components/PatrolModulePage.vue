@@ -107,6 +107,20 @@
               <el-table-column prop="officerName" label="姓名" width="90" />
               <el-table-column prop="deviceId" label="设备" width="120" />
               <el-table-column prop="address" label="位置" show-overflow-tooltip />
+              <el-table-column label="轨迹" width="80">
+                <template #default="scope">
+                  <el-button link type="primary" @click="handleLoadTrack(scope.row.badgeNo)">查看</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+          <el-card shadow="never" class="mt-[12px]">
+            <template #header>轨迹回放</template>
+            <el-table :data="trackPoints" border>
+              <el-table-column prop="reportedAt" label="上报时间" width="170" />
+              <el-table-column prop="address" label="位置" min-width="160" show-overflow-tooltip />
+              <el-table-column prop="latitude" label="纬度" width="110" />
+              <el-table-column prop="longitude" label="经度" width="110" />
             </el-table>
           </el-card>
         </el-col>
@@ -136,7 +150,7 @@
     </template>
 
     <template v-else-if="module === 'devices'">
-      <el-card shadow="never">
+      <el-card shadow="never" class="mb-[12px]">
         <template #header>智能穿戴设备台账</template>
         <el-table :data="devices" border>
           <el-table-column prop="deviceId" label="设备编号" width="130" />
@@ -161,6 +175,18 @@
           </el-table-column>
         </el-table>
       </el-card>
+      <el-card shadow="never">
+        <template #header>最近指令</template>
+        <el-table :data="deviceCommands" border>
+          <el-table-column prop="sentAt" label="下发时间" width="170" />
+          <el-table-column prop="deviceId" label="设备编号" width="130" />
+          <el-table-column prop="command" label="指令" width="130" />
+          <el-table-column prop="operatorId" label="操作人" width="110" />
+          <el-table-column prop="status" label="状态" width="100" />
+          <el-table-column prop="resultMessage" label="结果" min-width="220" show-overflow-tooltip />
+          <el-table-column prop="ackAt" label="回执时间" width="170" />
+        </el-table>
+      </el-card>
     </template>
 
     <template v-else-if="module === 'media'">
@@ -176,6 +202,12 @@
           <el-table-column prop="verifyStatus" label="校验" width="110" />
           <el-table-column prop="storagePath" label="存储位置" min-width="160" />
           <el-table-column prop="capturedAt" label="采集时间" width="170" />
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="scope">
+              <el-button link type="primary" @click="handleVerifyMedia(scope.row.fileId)">校验</el-button>
+              <el-button link type="danger" @click="handleDeleteMedia(scope.row.fileId)">删除</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </el-card>
     </template>
@@ -192,6 +224,11 @@
           <el-table-column prop="status" label="状态" width="100" />
           <el-table-column prop="disposition" label="处置" width="130" />
           <el-table-column prop="backupEtaMinutes" label="增援 ETA" width="100" />
+          <el-table-column label="操作" width="100" fixed="right">
+            <template #default="scope">
+              <el-button link type="success" @click="handleCloseSos(scope.row.sosId)">关闭</el-button>
+            </template>
+          </el-table-column>
         </el-table>
       </el-card>
     </template>
@@ -225,6 +262,108 @@
       </el-row>
     </template>
 
+    <template v-else-if="module === 'messages'">
+      <el-card shadow="never" class="mb-[12px]">
+        <template #header>发送指挥消息</template>
+        <el-form :inline="true" :model="messageForm" class="message-form">
+          <el-form-item label="目标类型">
+            <el-select v-model="messageForm.targetType" style="width: 120px">
+              <el-option label="警员" value="SINGLE" />
+              <el-option label="设备" value="DEVICE" />
+              <el-option label="组织" value="ORG" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="目标ID">
+            <el-input v-model="messageForm.targetId" style="width: 150px" />
+          </el-form-item>
+          <el-form-item label="标题">
+            <el-input v-model="messageForm.title" style="width: 160px" />
+          </el-form-item>
+          <el-form-item label="内容">
+            <el-input v-model="messageForm.content" style="width: 360px" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" icon="Promotion" @click="handleSendMessage">发送</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+      <el-card shadow="never">
+        <template #header>消息流水</template>
+        <el-table :data="messages" border>
+          <el-table-column prop="sentAt" label="发送时间" width="170" />
+          <el-table-column prop="title" label="标题" width="130" />
+          <el-table-column prop="content" label="内容" min-width="240" show-overflow-tooltip />
+          <el-table-column prop="targetType" label="目标类型" width="100" />
+          <el-table-column prop="targetName" label="目标" width="130" />
+          <el-table-column prop="channel" label="通道" width="80" />
+          <el-table-column prop="status" label="状态" width="90" />
+          <el-table-column label="已读" width="90">
+            <template #default="scope">{{ scope.row.readCount }}/{{ scope.row.totalCount }}</template>
+          </el-table-column>
+        </el-table>
+      </el-card>
+    </template>
+
+    <template v-else-if="module === 'statistics'">
+      <el-row :gutter="12" class="mb-[12px]">
+        <el-col v-for="metric in statistics?.metrics || []" :key="metric.label" :xs="12" :sm="6">
+          <el-card shadow="never" class="metric-card">
+            <div class="metric-label">{{ metric.label }}</div>
+            <div class="metric-value" :class="`metric-${metric.type}`">{{ metric.value }}</div>
+            <div class="metric-note">{{ metric.note }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
+      <el-row :gutter="12">
+        <el-col :xs="24" :lg="14">
+          <el-card shadow="never">
+            <template #header>近 7 日趋势</template>
+            <el-table :data="statistics?.alertTrend || []" border>
+              <el-table-column prop="date" label="日期" width="100" />
+              <el-table-column prop="alerts" label="预警" />
+              <el-table-column prop="sos" label="SOS" />
+              <el-table-column prop="media" label="媒体" />
+              <el-table-column prop="dispatchSessions" label="指令/调度" />
+            </el-table>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :lg="10">
+          <el-card shadow="never" class="mb-[12px]">
+            <template #header>设备风险</template>
+            <el-table :data="statistics?.deviceRiskRanking || []" border>
+              <el-table-column prop="name" label="对象" />
+              <el-table-column prop="value" label="数值" width="80" />
+              <el-table-column prop="note" label="说明" />
+            </el-table>
+          </el-card>
+          <el-card shadow="never">
+            <template #header>处置统计</template>
+            <el-table :data="statistics?.dispositionStats || []" border>
+              <el-table-column prop="name" label="状态" />
+              <el-table-column prop="value" label="数量" width="80" />
+              <el-table-column prop="note" label="类型" />
+            </el-table>
+          </el-card>
+        </el-col>
+      </el-row>
+    </template>
+
+    <template v-else-if="module === 'audit'">
+      <el-card shadow="never">
+        <template #header>操作审计</template>
+        <el-table :data="auditLogs" border>
+          <el-table-column prop="occurredAt" label="时间" width="170" />
+          <el-table-column prop="logType" label="类型" width="100" />
+          <el-table-column prop="operatorName" label="操作人" width="110" />
+          <el-table-column prop="action" label="动作" min-width="160" />
+          <el-table-column prop="resource" label="资源" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="result" label="结果" width="90" />
+          <el-table-column prop="ipAddress" label="IP" width="120" />
+          <el-table-column prop="traceId" label="Trace" min-width="220" show-overflow-tooltip />
+        </el-table>
+      </el-card>
+    </template>
+
     <template v-else>
       <el-card shadow="never">
         <template #header>运维能力</template>
@@ -244,18 +383,27 @@
 <script setup lang="ts">
 import {
   acknowledgeAlert,
+  closePatrolSos,
   closeAlert,
   createDispatchSession,
+  deletePatrolMedia,
   getPatrolDashboard,
+  getStatisticsOverview,
+  listDeviceCommands,
   listControlPersons,
   listControlVehicles,
   listDispatchChannels,
   listOfficerLocations,
+  listOfficerTrack,
   listPatrolAlerts,
   listPatrolDevices,
   listPatrolMedia,
+  listPatrolMessages,
   listPatrolSos,
-  sendDeviceCommand
+  listSystemAuditLogs,
+  sendPatrolMessage,
+  sendDeviceCommand,
+  verifyPatrolMedia
 } from '@/api/patrol';
 import {
   ControlPerson,
@@ -264,10 +412,15 @@ import {
   DispatchChannel,
   ModuleKey,
   OfficerLocation,
+  OfficerTrackPoint,
   PatrolAlert,
   PatrolDevice,
+  PatrolDeviceCommand,
   PatrolMedia,
-  PatrolSos
+  PatrolMessage,
+  PatrolSos,
+  StatisticsOverview,
+  SystemAuditLog
 } from '@/api/patrol/types';
 import { loadAMap } from '@/utils/amap';
 
@@ -277,13 +430,24 @@ const loading = ref(false);
 const wallLayout = ref(8);
 const dashboard = ref<DashboardSummary>();
 const devices = ref<PatrolDevice[]>([]);
+const deviceCommands = ref<PatrolDeviceCommand[]>([]);
 const channels = ref<DispatchChannel[]>([]);
 const officers = ref<OfficerLocation[]>([]);
+const trackPoints = ref<OfficerTrackPoint[]>([]);
 const alerts = ref<PatrolAlert[]>([]);
 const mediaFiles = ref<PatrolMedia[]>([]);
 const sosEvents = ref<PatrolSos[]>([]);
 const controlPersons = ref<ControlPerson[]>([]);
 const controlVehicles = ref<ControlVehicle[]>([]);
+const messages = ref<PatrolMessage[]>([]);
+const statistics = ref<StatisticsOverview>();
+const auditLogs = ref<SystemAuditLog[]>([]);
+const messageForm = reactive({
+  targetType: 'SINGLE',
+  targetId: 'POLICE_9527',
+  title: '指挥消息',
+  content: '请保持在线并确认当前位置。'
+});
 const mapContainer = ref<HTMLDivElement>();
 const mapInstance = shallowRef<any>();
 const mapInfoWindow = shallowRef<any>();
@@ -299,6 +463,9 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
   media: { title: '媒体证据', desc: '管理图片、视频、音频、SOS 录音和处置附件，后续接入 MinIO。' },
   sos: { title: 'SOS 求助', desc: '实时接收一键求助、定位、录音状态、增援 ETA 和处置结果。' },
   control: { title: '人员车辆布控', desc: '维护人员/车辆布控任务，预留本地重点库同步接口。' },
+  messages: { title: '消息通知', desc: '向警员、设备或组织发送指挥消息，并查看消息送达状态。' },
+  statistics: { title: '统计分析', desc: '基于设备、预警、SOS、媒体和指令流水沉淀运行指标。' },
+  audit: { title: '审计日志', desc: '记录关键指挥操作、业务资源、操作人和链路追踪信息。' },
   operations: { title: '运维监控', desc: '沉淀数据库、Redis、MinIO、流媒体和第三方接口的运行能力边界。' }
 };
 
@@ -319,7 +486,9 @@ const loadData = async () => {
     } else if (props.module === 'alerts') {
       alerts.value = (await listPatrolAlerts()).data;
     } else if (props.module === 'devices') {
-      devices.value = (await listPatrolDevices()).data;
+      const [devicesRes, commandsRes] = await Promise.all([listPatrolDevices(), listDeviceCommands()]);
+      devices.value = devicesRes.data;
+      deviceCommands.value = commandsRes.data;
     } else if (props.module === 'media') {
       mediaFiles.value = (await listPatrolMedia()).data;
     } else if (props.module === 'sos') {
@@ -328,6 +497,12 @@ const loadData = async () => {
       const [personsRes, vehiclesRes] = await Promise.all([listControlPersons(), listControlVehicles()]);
       controlPersons.value = personsRes.data;
       controlVehicles.value = vehiclesRes.data;
+    } else if (props.module === 'messages') {
+      messages.value = (await listPatrolMessages()).data;
+    } else if (props.module === 'statistics') {
+      statistics.value = (await getStatisticsOverview()).data;
+    } else if (props.module === 'audit') {
+      auditLogs.value = (await listSystemAuditLogs()).data;
     }
   } finally {
     loading.value = false;
@@ -337,6 +512,9 @@ const loadData = async () => {
 const handleDeviceCommand = async (deviceId: string, command: string) => {
   await sendDeviceCommand(deviceId, command);
   ElMessage.success('设备指令已下发');
+  if (props.module === 'devices') {
+    await loadData();
+  }
 };
 
 const handleCreateSession = async (deviceId: string) => {
@@ -354,6 +532,43 @@ const handleClose = async (alertId: string) => {
   await closeAlert(alertId, 'RESOLVED', '平台端处置闭环');
   ElMessage.success('预警已关闭');
   loadData();
+};
+
+const handleSendMessage = async () => {
+  await sendPatrolMessage({ ...messageForm });
+  ElMessage.success('指挥消息已发送');
+  await loadData();
+};
+
+const handleLoadTrack = async (badgeNo: string) => {
+  trackPoints.value = (await listOfficerTrack(badgeNo)).data;
+  ElMessage.success('轨迹已加载');
+};
+
+const handleVerifyMedia = async (fileId: string) => {
+  const result = (await verifyPatrolMedia(fileId)).data;
+  ElMessage.success(result.message);
+  await loadData();
+};
+
+const handleDeleteMedia = async (fileId: string) => {
+  const result = (await deletePatrolMedia(fileId)).data;
+  if (result.status === 'DELETED') {
+    ElMessage.success(result.message);
+  } else {
+    ElMessage.warning(result.message);
+  }
+  await loadData();
+};
+
+const handleCloseSos = async (sosId: string) => {
+  const result = (await closePatrolSos(sosId)).data;
+  if (result.status === 'CLOSED') {
+    ElMessage.success(result.message);
+  } else {
+    ElMessage.warning(result.message);
+  }
+  await loadData();
 };
 
 const renderOfficerMap = async () => {

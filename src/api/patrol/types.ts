@@ -59,6 +59,17 @@ export interface PatrolDevice {
   lastOnlineTime: string;
 }
 
+export interface PatrolDeviceCommand {
+  commandId: string;
+  deviceId: string;
+  command: string;
+  operatorId: string;
+  status: string;
+  resultMessage: string;
+  sentAt: string;
+  ackAt: string;
+}
+
 export interface DispatchChannel {
   channelId: string;
   deviceId: string;
@@ -81,6 +92,14 @@ export interface OfficerLocation {
   address: string;
   onlineStatus: string;
   batteryPercent: number;
+  reportedAt: string;
+}
+
+export interface OfficerTrackPoint {
+  badgeNo: string;
+  latitude: string;
+  longitude: string;
+  address: string;
   reportedAt: string;
 }
 
@@ -111,6 +130,12 @@ export interface PatrolMedia {
   capturedAt: string;
 }
 
+export interface PatrolMediaAction {
+  fileId: string;
+  status: string;
+  message: string;
+}
+
 export interface PatrolSos {
   sosId: string;
   officerName: string;
@@ -123,6 +148,12 @@ export interface PatrolSos {
   recordingAudio: boolean;
   backupEtaMinutes: number;
   createdAt: string;
+}
+
+export interface PatrolSosAction {
+  sosId: string;
+  status: string;
+  message: string;
 }
 
 export interface ControlPerson {
@@ -161,6 +192,7 @@ export interface PatrolMessage {
 export interface MessageSendPayload {
   targetId: string;
   targetType: string;
+  title?: string;
   content: string;
 }
 

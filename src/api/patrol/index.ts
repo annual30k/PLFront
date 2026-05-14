@@ -8,11 +8,15 @@ import {
   MessageResult,
   MessageSendPayload,
   OfficerLocation,
+  OfficerTrackPoint,
   PatrolAlert,
   PatrolDevice,
+  PatrolDeviceCommand,
   PatrolMedia,
+  PatrolMediaAction,
   PatrolMessage,
   PatrolSos,
+  PatrolSosAction,
   StatisticsOverview,
   SystemAuditLog,
   SystemCapability
@@ -44,6 +48,13 @@ export const sendDeviceCommand = (deviceId: string, command: string) => {
   });
 };
 
+export const listDeviceCommands = (): AxiosPromise<PatrolDeviceCommand[]> => {
+  return request({
+    url: '/patrol/devices/commands',
+    method: 'get'
+  });
+};
+
 export const listDispatchChannels = (): AxiosPromise<DispatchChannel[]> => {
   return request({
     url: '/patrol/dispatch/channels',
@@ -62,6 +73,13 @@ export const createDispatchSession = (deviceId: string, mode = 'LOW_LATENCY') =>
 export const listOfficerLocations = (): AxiosPromise<OfficerLocation[]> => {
   return request({
     url: '/patrol/map/officers',
+    method: 'get'
+  });
+};
+
+export const listOfficerTrack = (badgeNo: string): AxiosPromise<OfficerTrackPoint[]> => {
+  return request({
+    url: `/patrol/map/officers/${badgeNo}/track`,
     method: 'get'
   });
 };
@@ -95,10 +113,31 @@ export const listPatrolMedia = (): AxiosPromise<PatrolMedia[]> => {
   });
 };
 
+export const verifyPatrolMedia = (fileId: string): AxiosPromise<PatrolMediaAction> => {
+  return request({
+    url: `/patrol/media/${fileId}/verify`,
+    method: 'post'
+  });
+};
+
+export const deletePatrolMedia = (fileId: string): AxiosPromise<PatrolMediaAction> => {
+  return request({
+    url: `/patrol/media/${fileId}`,
+    method: 'delete'
+  });
+};
+
 export const listPatrolSos = (): AxiosPromise<PatrolSos[]> => {
   return request({
     url: '/patrol/sos',
     method: 'get'
+  });
+};
+
+export const closePatrolSos = (sosId: string): AxiosPromise<PatrolSosAction> => {
+  return request({
+    url: `/patrol/sos/${sosId}/close`,
+    method: 'post'
   });
 };
 
