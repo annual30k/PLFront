@@ -1,83 +1,181 @@
-## 平台简介
+# PatrolLink Frontend
 
-- 本仓库为前端技术栈 [Vue3](https://v3.cn.vuejs.org) + [TS](https://www.typescriptlang.org/) + [Element Plus](https://element-plus.org/zh-CN) + [Vite](https://cn.vitejs.dev) 版本。
-- 成员项目: 基于 vben5(ant-design-vue) 的前端项目 [ruoyi-plus-vben5](https://gitee.com/dapppp/ruoyi-plus-vben5)
-- 成员项目: 基于soybean 的前端项目 [ruoyi-plus-soybean](https://gitee.com/xlsea/ruoyi-plus-soybean)
+PatrolLink Frontend is the web console for the smart law-enforcement headset command platform. It is built on Vue 3, TypeScript, Vite, Pinia, Vue Router, Element Plus, and the RuoYi-Vue-Plus frontend foundation.
 
-## 配套后端代码仓库地址
+中文说明见下方 [中文](#中文)。
 
-| 介绍         | 项目名              | 项目地址                                                                                                                                                                           |
-|------------|:-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 🔥 分布式集群框架 | RuoYi-Vue-Plus   | - [Gitee](https://gitee.com/dromara/RuoYi-Vue-Plus)<br> - [GitHub](https://github.com/dromara/RuoYi-Vue-Plus)<br> - [GitCode](https://gitcode.com/dromara/RuoYi-Vue-Plus)      |
-| 🔥 微服务框架   | RuoYi-Cloud-Plus | - [Gitee](https://gitee.com/dromara/RuoYi-Cloud-Plus)<br>- [GitHub](https://github.com/dromara/RuoYi-Cloud-Plus)<br> - [GitCode](https://gitcode.com/dromara/RuoYi-Cloud-Plus) |
+## English
 
-## 分支说明
+### Overview
 
-- ts分支(稳定发布主分支 生产可用)
-- dev分支(开发分支 开发过程中使用)
+This repository contains the PatrolLink command console frontend. It provides the browser-based UI for patrol monitoring, device management, dispatch operations, SOS handling, media evidence review, alerts, audit logs, and operational statistics.
 
-## 前端运行
+The project is adapted from the RuoYi-Vue-Plus UI stack and keeps the existing authentication, permission routing, system management, dictionary, tenant, workflow, and monitoring capabilities while adding PatrolLink-specific pages under `src/views/patrol`.
+
+### Main Features
+
+- Patrol dashboard and operational overview
+- Device, alert, SOS, dispatch, map, media, message, audit, and statistics pages
+- User, role, menu, department, tenant, dictionary, notice, and system configuration management
+- API encryption support aligned with the backend configuration
+- SSE and WebSocket-ready client utilities
+- Production build and Nginx-based Docker deployment
+
+### Tech Stack
+
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
+- Element Plus
+- UnoCSS
+- Axios
+
+### Requirements
+
+- Node.js `>= 20.15.0`
+- npm `>= 8.19.0`
+- PatrolLink Backend running on `http://localhost:8080` for local development
+
+### Local Development
 
 ```bash
-# 安装依赖
 npm install --registry=https://registry.npmmirror.com
-
-# 启动服务
 npm run dev
-
-# 构建生产环境
-npm run build:prod
-
-# 前端访问地址 http://localhost:80
 ```
 
-## 本框架与RuoYi的业务差异
+The development server uses the port configured by `VITE_APP_PORT` in `.env.development`. The current default is `80`.
 
-| 业务         | 功能说明                                                      | 本框架 | RuoYi                         |
-| ------------ | ------------------------------------------------------------- | ------ | ----------------------------- |
-| 租户管理     | 系统内租户的管理 如:租户套餐、过期时间、用户数量、企业信息等  | 支持   | 无                            |
-| 租户套餐管理 | 系统内租户所能使用的套餐管理 如:套餐内所包含的菜单等          | 支持   | 无                            |
-| 用户管理     | 用户的管理配置 如:新增用户、分配用户所属部门、角色、岗位等    | 支持   | 支持                          |
-| 部门管理     | 配置系统组织机构（公司、部门、小组） 树结构展现支持数据权限   | 支持   | 支持                          |
-| 岗位管理     | 配置系统用户所属担任职务                                      | 支持   | 支持                          |
-| 菜单管理     | 配置系统菜单、操作权限、按钮权限标识等                        | 支持   | 支持                          |
-| 角色管理     | 角色菜单权限分配、设置角色按机构进行数据范围权限划分          | 支持   | 支持                          |
-| 字典管理     | 对系统中经常使用的一些较为固定的数据进行维护                  | 支持   | 支持                          |
-| 参数管理     | 对系统动态配置常用参数                                        | 支持   | 支持                          |
-| 通知公告     | 系统通知公告信息发布维护                                      | 支持   | 支持                          |
-| 操作日志     | 系统正常操作日志记录和查询 系统异常信息日志记录和查询         | 支持   | 支持                          |
-| 登录日志     | 系统登录日志记录查询包含登录异常                              | 支持   | 支持                          |
-| 文件管理     | 系统文件展示、上传、下载、删除等管理                          | 支持   | 无                            |
-| 文件配置管理 | 系统文件上传、下载所需要的配置信息动态添加、修改、删除等管理  | 支持   | 无                            |
-| 在线用户管理 | 已登录系统的在线用户信息监控与强制踢出操作                    | 支持   | 支持                          |
-| 定时任务     | 运行报表、任务管理(添加、修改、删除)、日志管理、执行器管理等  | 支持   | 仅支持任务与日志管理          |
-| 代码生成     | 多数据源前后端代码的生成（java、html、xml、sql）支持CRUD下载  | 支持   | 仅支持单数据源                |
-| 系统接口     | 根据业务代码自动生成相关的api接口文档                         | 支持   | 支持                          |
-| 服务监控     | 监视集群系统CPU、内存、磁盘、堆栈、在线日志、Spring相关配置等 | 支持   | 仅支持单机CPU、内存、磁盘监控 |
-| 缓存监控     | 对系统的缓存信息查询，命令统计等。                            | 支持   | 支持                          |
-| 在线构建器   | 拖动表单元素生成相应的HTML代码。                              | 支持   | 支持                          |
-| 使用案例     | 系统的一些功能案例                                            | 支持   | 不支持                        |
+API requests using `VITE_APP_BASE_API=/dev-api` are proxied to:
 
-## 演示图例
+```text
+http://localhost:8080
+```
 
-|                                                                                                      |                                                                                                      |
-| ---------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| ![输入图片说明](https://foruda.gitee.com/images/1680077524361362822/270bb429_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680077619939771291/989bf9b6_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680077681751513929/1c27c5bd_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680077721559267315/74d63e23_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680077765638904515/1b75d4a6_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078026375951297/eded7a4b_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078237104531207/0eb1b6a7_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078254306078709/5931e22f_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078287971528493/0b9af60a_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078308138770249/8d3b6696_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078352553634393/db5ef880_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078378238393374/601e4357_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078414983206024/2aae27c1_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078446738419874/ecce7d59_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078475971341775/149e8634_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078491666717143/3fadece7_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078558863188826/fb8ced2a_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078574561685461/ae68a0b2_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078594932772013/9d8bfec6_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078626493093532/fcfe4ff6_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078643608812515/0295bd4f_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078685196286463/d7612c81_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078703877318597/56fce0bc_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078716586545643/b6dbd68f_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078734103217688/eb1e6aa6_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078759131415480/73c525d8_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078779416197879/75e3ed02_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078802329118061/77e10915_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078893627848351/34a1c342_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078928175016986/f126ec4a_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078941718318363/b68a0f72_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680078963175518631/3bb769a1_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680078982294090567/b31c343d_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680079000642440444/77ca82a9_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680079020995074177/03b7d52e_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680079039367822173/76811806_1766278.png '屏幕截图') |
-| ![输入图片说明](https://foruda.gitee.com/images/1680079274333484664/4dfdc7c0_1766278.png '屏幕截图') | ![输入图片说明](https://foruda.gitee.com/images/1680079290467458224/d6715fcf_1766278.png '屏幕截图') |
+### Build
+
+```bash
+npm run build:prod
+```
+
+The production files are generated in `dist/`.
+
+### Docker
+
+```bash
+docker build -t patrollink-frontend .
+docker run --rm -p 80:80 patrollink-frontend
+```
+
+The container builds the frontend with Node.js and serves static files through Nginx.
+
+### Project Structure
+
+```text
+src/api             API clients
+src/assets          Static assets and global styles
+src/components      Shared Vue components
+src/layout          Admin console layout
+src/router          Route configuration
+src/store           Pinia stores
+src/utils           Shared utilities
+src/views/patrol    PatrolLink business pages
+vite                Vite plugin configuration
+docker              Nginx configuration for container deployment
+```
+
+### Related Repositories
+
+- Backend: https://github.com/annual30k/PLBackend.git
+- Android client: located in the parent PatrolLink workspace
+
+## 中文
+
+### 项目简介
+
+PatrolLink Frontend 是智能执法耳机指挥平台的 Web 管理端。项目基于 Vue 3、TypeScript、Vite、Pinia、Vue Router、Element Plus 以及 RuoYi-Vue-Plus 前端基础框架改造。
+
+本仓库保留了原有后台管理系统的登录鉴权、权限路由、系统管理、字典、租户、工作流、监控等基础能力，并在 `src/views/patrol` 下增加 PatrolLink 业务页面，用于支撑巡防态势、设备管理、指挥调度、SOS、媒体证据、预警、审计和统计分析等场景。
+
+### 主要功能
+
+- 巡防工作台与运行态势总览
+- 设备、预警、SOS、指挥调度、地图、媒体证据、消息、审计、统计分析页面
+- 用户、角色、菜单、部门、租户、字典、通知、系统参数等后台管理能力
+- 与后端配置一致的接口加密支持
+- SSE 与 WebSocket 客户端工具预留
+- 生产构建与 Nginx Docker 部署
+
+### 技术栈
+
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
+- Element Plus
+- UnoCSS
+- Axios
+
+### 环境要求
+
+- Node.js `>= 20.15.0`
+- npm `>= 8.19.0`
+- 本地开发时需要 PatrolLink 后端运行在 `http://localhost:8080`
+
+### 本地开发
+
+```bash
+npm install --registry=https://registry.npmmirror.com
+npm run dev
+```
+
+开发服务端口由 `.env.development` 中的 `VITE_APP_PORT` 控制，当前默认值为 `80`。
+
+当前开发环境接口前缀为 `VITE_APP_BASE_API=/dev-api`，会代理到：
+
+```text
+http://localhost:8080
+```
+
+### 构建
+
+```bash
+npm run build:prod
+```
+
+构建产物输出到 `dist/`。
+
+### Docker 部署
+
+```bash
+docker build -t patrollink-frontend .
+docker run --rm -p 80:80 patrollink-frontend
+```
+
+镜像会先使用 Node.js 构建前端，再通过 Nginx 提供静态文件服务。
+
+### 目录结构
+
+```text
+src/api             接口请求封装
+src/assets          静态资源与全局样式
+src/components      通用 Vue 组件
+src/layout          后台管理布局
+src/router          路由配置
+src/store           Pinia 状态管理
+src/utils           通用工具
+src/views/patrol    PatrolLink 业务页面
+vite                Vite 插件配置
+docker              容器部署用 Nginx 配置
+```
+
+### 相关仓库
+
+- 后端仓库：https://github.com/annual30k/PLBackend.git
+- Android 客户端：位于 PatrolLink 父级工作区
+
+### 框架来源
+
+本项目基于 RuoYi-Vue-Plus 前端框架改造。来源信息记录在 `PATROLLINK_SOURCE.md`。
