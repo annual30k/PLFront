@@ -20,8 +20,16 @@ interface ImportMetaEnv {
   VITE_APP_CLIENT_ID: string;
   VITE_APP_WEBSOCKET: string;
   VITE_APP_SSE: string;
+  VITE_AMAP_KEY: string;
+  VITE_AMAP_SECURITY_CODE: string;
 }
 interface ImportMeta {
   readonly env: ImportMetaEnv;
   // readonly glob: any;
+}
+
+interface Window {
+  _AMapSecurityConfig?: {
+    securityJsCode?: string;
+  };
 }

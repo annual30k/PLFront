@@ -91,12 +91,12 @@
           <el-card shadow="never">
             <template #header>警力一张图</template>
             <div class="map-panel">
-              <div v-for="officer in officers" :key="officer.badgeNo" class="map-point" :style="pointStyle(officer)">
-                <el-tooltip :content="`${officer.officerName} · ${officer.address}`">
-                  <span></span>
-                </el-tooltip>
+              <div ref="mapContainer" class="amap-container">
+                <div v-if="mapError" class="map-fallback">
+                  <div>地图加载失败</div>
+                  <span>{{ mapError }}</span>
+                </div>
               </div>
-              <div class="map-grid"></div>
             </div>
           </el-card>
         </el-col>
@@ -269,6 +269,7 @@ import {
   PatrolMedia,
   PatrolSos
 } from '@/api/patrol/types';
+import { loadAMap } from '@/utils/amap';
 
 const props = defineProps<{ module: ModuleKey }>();
 
@@ -283,6 +284,11 @@ const mediaFiles = ref<PatrolMedia[]>([]);
 const sosEvents = ref<PatrolSos[]>([]);
 const controlPersons = ref<ControlPerson[]>([]);
 const controlVehicles = ref<ControlVehicle[]>([]);
+const mapContainer = ref<HTMLDivElement>();
+const mapInstance = shallowRef<any>();
+const mapInfoWindow = shallowRef<any>();
+const mapMarkers: any[] = [];
+const mapError = ref('');
 
 const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
   dashboard: { title: '指挥工作台', desc: '聚合在线警力、设备、视频会话、预警、SOS 与媒体上传状态。' },
@@ -308,6 +314,8 @@ const loadData = async () => {
       channels.value = (await listDispatchChannels()).data;
     } else if (props.module === 'map') {
       officers.value = (await listOfficerLocations()).data;
+      await nextTick();
+      await renderOfficerMap();
     } else if (props.module === 'alerts') {
       alerts.value = (await listPatrolAlerts()).data;
     } else if (props.module === 'devices') {
@@ -348,16 +356,88 @@ const handleClose = async (alertId: string) => {
   loadData();
 };
 
-const pointStyle = (officer: OfficerLocation) => {
-  const seed = officer.badgeNo.split('').reduce((sum, item) => sum + item.charCodeAt(0), 0);
-  return {
-    left: `${18 + (seed % 58)}%`,
-    top: `${18 + ((seed * 7) % 54)}%`
-  };
+const renderOfficerMap = async () => {
+  if (props.module !== 'map' || !mapContainer.value) {
+    return;
+  }
+  try {
+    mapError.value = '';
+    const AMap = await loadAMap();
+    if (!mapInstance.value) {
+      mapInstance.value = new AMap.Map(mapContainer.value, {
+        center: [119.30655, 26.1002],
+        zoom: 15,
+        viewMode: '2D',
+        resizeEnable: true
+      });
+      mapInstance.value.addControl(new AMap.Scale());
+      mapInstance.value.addControl(new AMap.ToolBar({ position: { top: '12px', right: '12px' } }));
+      mapInfoWindow.value = new AMap.InfoWindow({ offset: new AMap.Pixel(0, -28) });
+    }
+
+    clearMapMarkers();
+    const points = officers.value
+      .map((officer) => ({
+        officer,
+        longitude: Number(officer.longitude),
+        latitude: Number(officer.latitude)
+      }))
+      .filter((item) => Number.isFinite(item.longitude) && Number.isFinite(item.latitude));
+
+    points.forEach(({ officer, longitude, latitude }) => {
+      const marker = new AMap.Marker({
+        position: [longitude, latitude],
+        title: `${officer.officerName} · ${officer.deviceId}`,
+        anchor: 'bottom-center'
+      });
+      marker.setLabel({
+        direction: 'top',
+        offset: new AMap.Pixel(0, -6),
+        content: `<div class="amap-officer-label">${escapeHtml(officer.officerName)} · ${escapeHtml(officer.onlineStatus)}</div>`
+      });
+      marker.on('click', () => {
+        mapInfoWindow.value?.setContent(`
+          <div class="amap-officer-window">
+            <strong>${escapeHtml(officer.officerName)}</strong>
+            <span>${escapeHtml(officer.deviceId)} · ${escapeHtml(officer.address)}</span>
+            <span>电量 ${officer.batteryPercent}% · ${escapeHtml(officer.reportedAt)}</span>
+          </div>
+        `);
+        mapInfoWindow.value?.open(mapInstance.value, [longitude, latitude]);
+      });
+      marker.setMap(mapInstance.value);
+      mapMarkers.push(marker);
+    });
+
+    if (mapMarkers.length) {
+      mapInstance.value.setFitView(mapMarkers, false, [64, 48, 64, 48]);
+    }
+  } catch (error) {
+    mapError.value = error instanceof Error ? error.message : '高德地图 SDK 初始化异常';
+  }
+};
+
+const clearMapMarkers = () => {
+  while (mapMarkers.length) {
+    mapMarkers.pop()?.setMap(null);
+  }
+};
+
+const escapeHtml = (value: unknown) => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 };
 
 watch(() => props.module, loadData);
 onMounted(loadData);
+onBeforeUnmount(() => {
+  clearMapMarkers();
+  mapInstance.value?.destroy?.();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -463,32 +543,57 @@ onMounted(loadData);
   height: 520px;
   overflow: hidden;
   border-radius: 6px;
-  background:
-    linear-gradient(90deg, rgba(37, 99, 235, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(37, 99, 235, 0.08) 1px, transparent 1px),
-    linear-gradient(135deg, #eef6ff, #f8fafc);
-  background-size: 48px 48px, 48px 48px, 100% 100%;
+  background: #eef2f7;
 }
 
-.map-grid {
+.amap-container {
   position: absolute;
-  inset: 42px;
-  border: 1px solid rgba(37, 99, 235, 0.16);
-  border-radius: 8px;
+  inset: 0;
 }
 
-.map-point {
-  position: absolute;
-  z-index: 2;
+.map-fallback {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 700;
 }
 
-.map-point span {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border: 3px solid #fff;
-  border-radius: 50%;
-  background: #2563eb;
-  box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.16);
+.map-fallback span {
+  max-width: 420px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+:deep(.amap-officer-label) {
+  padding: 4px 8px;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+:deep(.amap-officer-window) {
+  display: flex;
+  min-width: 210px;
+  flex-direction: column;
+  gap: 4px;
+  color: #374151;
+  font-size: 12px;
+  line-height: 18px;
+}
+
+:deep(.amap-officer-window strong) {
+  color: #111827;
+  font-size: 14px;
 }
 </style>
