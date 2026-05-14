@@ -91,3 +91,5 @@ docker              容器部署用 Nginx 配置
 ## 框架来源
 
 本项目基于 RuoYi-Vue-Plus 前端框架改造。来源信息记录在 `PATROLLINK_SOURCE.md`。
+
+原始 RuoYi 前端 README 已保留在 `README.ruoyi.md`。

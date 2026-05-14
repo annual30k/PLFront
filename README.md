@@ -91,3 +91,5 @@ docker              Nginx configuration for container deployment
 ## Framework Source
 
 This project is adapted from the RuoYi-Vue-Plus frontend framework. Source details are recorded in `PATROLLINK_SOURCE.md`.
+
+The original RuoYi frontend README is preserved in `README.ruoyi.md`.
