@@ -455,7 +455,14 @@
                 :closable="false"
                 show-icon
               />
-              <div class="report-content">{{ activeDailyReport.content }}</div>
+              <el-input
+                v-model="activeDailyReport.content"
+                class="report-content-editor"
+                type="textarea"
+                :autosize="{ minRows: 16, maxRows: 32 }"
+                resize="vertical"
+                placeholder="请输入或修改日报正文"
+              />
               <el-collapse class="mt-[12px]">
                 <el-collapse-item title="媒体选择" name="media">
                   <pre class="json-block">{{ formatJson(activeDailyReport.mediaSelectionJson) }}</pre>
@@ -465,6 +472,7 @@
                 </el-collapse-item>
               </el-collapse>
               <el-space class="mt-[12px]">
+                <el-button :loading="reportContentSaving" type="success" @click="handleSaveDailyReportContent">保存正文</el-button>
                 <el-button type="primary" @click="handleUpdateDailyReportStatus(activeDailyReport.reportId, 'REVIEWED')">标记已复核</el-button>
                 <el-button @click="handleUpdateDailyReportStatus(activeDailyReport.reportId, 'ARCHIVED')">归档</el-button>
               </el-space>
@@ -863,6 +871,7 @@ import {
   updateControlPersonStatus,
   updateAppVersionStatus,
   updateControlVehicleStatus,
+  updatePatrolDailyReportContent,
   updatePatrolDailyReportStatus,
   uploadControlPersonFaceImage,
   uploadAppVersionPackage,
@@ -926,6 +935,7 @@ const mediaUploadTasks = ref<PatrolMediaUploadTask[]>([]);
 const dailyReports = ref<PatrolDailyReport[]>([]);
 const activeDailyReport = ref<PatrolDailyReport>();
 const reportStatusFilter = ref('');
+const reportContentSaving = ref(false);
 const sosEvents = ref<PatrolSos[]>([]);
 const sosTimeline = ref<PatrolSosTimeline[]>([]);
 const controlPersons = ref<ControlPerson[]>([]);
@@ -1219,6 +1229,20 @@ const handleUpdateDailyReportStatus = async (reportId: string, status: string) =
   activeDailyReport.value = (await updatePatrolDailyReportStatus(reportId, status)).data;
   ElMessage.success(status === 'ARCHIVED' ? '日报已归档' : '日报已标记复核');
   await loadData();
+};
+
+const handleSaveDailyReportContent = async () => {
+  if (!activeDailyReport.value) {
+    return;
+  }
+  reportContentSaving.value = true;
+  try {
+    activeDailyReport.value = (await updatePatrolDailyReportContent(activeDailyReport.value.reportId, activeDailyReport.value.content || '')).data;
+    ElMessage.success('日报正文已保存');
+    await loadData();
+  } finally {
+    reportContentSaving.value = false;
+  }
 };
 
 const formatJson = (value?: string) => {
@@ -2008,17 +2032,14 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.report-content {
-  max-height: 360px;
-  overflow: auto;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #111827;
+.report-content-editor {
+  width: 100%;
+}
+
+.report-content-editor :deep(.el-textarea__inner) {
   font-size: 14px;
   line-height: 24px;
-  white-space: pre-wrap;
+  color: #111827;
 }
 
 .json-block {

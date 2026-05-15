@@ -282,6 +282,14 @@ export const updatePatrolDailyReportStatus = (reportId: string, status: string):
   });
 };
 
+export const updatePatrolDailyReportContent = (reportId: string, content: string): AxiosPromise<PatrolDailyReport> => {
+  return request({
+    url: `/patrol/daily-reports/${reportId}/content`,
+    method: 'patch',
+    data: { content }
+  });
+};
+
 export const downloadPatrolMedia = (fileId: string) => {
   return request({
     url: `/files/${fileId}/download`,

@@ -243,6 +243,9 @@ export interface PatrolDailyReport {
   backend: string;
   generatedAt: string;
   content: string;
+  documentUri: string;
+  documentName: string;
+  documentFormat: string;
   mediaSelectionJson: string;
   structuredContextJson: string;
   requiresHumanConfirmation: boolean;
