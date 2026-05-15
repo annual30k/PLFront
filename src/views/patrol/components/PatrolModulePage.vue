@@ -89,14 +89,23 @@
         <el-descriptions v-if="activeIntercomSession" :column="1" border>
           <el-descriptions-item label="会话ID">{{ activeIntercomSession.sessionId }}</el-descriptions-item>
           <el-descriptions-item label="设备">{{ activeIntercomSession.deviceId }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ activeIntercomSession.state }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ intercomStatus || activeIntercomSession.state }}</el-descriptions-item>
           <el-descriptions-item label="音频路由">{{ activeIntercomSession.audioRoute }}</el-descriptions-item>
           <el-descriptions-item label="信令">{{ activeIntercomSession.signalingUrl }}</el-descriptions-item>
           <el-descriptions-item label="ICE">{{ activeIntercomSession.iceServers.join(', ') }}</el-descriptions-item>
           <el-descriptions-item label="说明">{{ activeIntercomSession.message }}</el-descriptions-item>
         </el-descriptions>
+        <div class="intercom-panel">
+          <audio ref="intercomRemoteAudio" autoplay playsinline controls />
+          <el-alert
+            :title="intercomStatus || '等待 WebRTC 信令'"
+            :type="intercomConnected ? 'success' : 'info'"
+            :closable="false"
+            show-icon
+          />
+        </div>
         <template #footer>
-          <el-button @click="handleSendIntercomReady">发送测试信令</el-button>
+          <el-button :disabled="!activeIntercomSession" @click="handleRestartIntercomWebRtc">重新协商</el-button>
           <el-button type="danger" @click="handleCloseIntercom">关闭对讲</el-button>
         </template>
       </el-dialog>
@@ -662,31 +671,33 @@
           <el-card shadow="never">
             <template #header>新增 App 版本</template>
             <el-form :model="versionForm" label-width="86px">
-              <el-form-item label="版本号">
+              <el-form-item label="版本号" required>
                 <el-input-number v-model="versionForm.versionCode" :min="1" :step="1" />
               </el-form-item>
-              <el-form-item label="版本名称">
-                <el-input v-model="versionForm.versionName" />
+              <el-form-item label="版本名称" required>
+                <el-input v-model="versionForm.versionName" placeholder="例如 1.3.0" clearable />
               </el-form-item>
               <el-form-item label="强制更新">
                 <el-switch v-model="versionForm.forceUpdate" />
               </el-form-item>
-              <el-form-item label="APK">
+              <el-form-item label="APK" required>
                 <el-upload :show-file-list="false" accept=".apk" :http-request="handleUploadVersionPackage">
                   <el-button :loading="versionUploadLoading" icon="UploadFilled">上传安装包</el-button>
                 </el-upload>
+                <div v-if="versionForm.fileId" class="text-xs text-green-600 mt-1">安装包已上传，校验信息已自动生成</div>
+                <div v-else class="text-xs text-gray-400 mt-1">请先上传 APK，下载地址和 SHA-256 将自动回填</div>
               </el-form-item>
-              <el-form-item label="下载地址">
-                <el-input v-model="versionForm.downloadUrl" />
+              <el-form-item label="下载地址" required>
+                <el-input v-model="versionForm.downloadUrl" disabled placeholder="上传 APK 后自动生成" />
               </el-form-item>
-              <el-form-item label="SHA-256">
-                <el-input v-model="versionForm.sha256" />
+              <el-form-item label="SHA-256" required>
+                <el-input v-model="versionForm.sha256" disabled placeholder="上传 APK 后自动计算" />
               </el-form-item>
-              <el-form-item label="更新日志">
-                <el-input v-model="versionForm.changelog" type="textarea" :rows="4" />
+              <el-form-item label="更新日志" required>
+                <el-input v-model="versionForm.changelog" type="textarea" :rows="4" placeholder="请输入本次版本变更内容" />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" icon="Upload" @click="handleCreateVersion">发布版本</el-button>
+                <el-button type="primary" icon="Upload" :disabled="!canPublishVersion" @click="handleCreateVersion">发布版本</el-button>
               </el-form-item>
             </el-form>
           </el-card>
@@ -761,6 +772,7 @@ import {
   listControlPersons,
   listControlVehicles,
   listDispatchChannels,
+  listIntercomSignals,
   listOfficerLocations,
   listOfficerTrack,
   listPatrolAlerts,
@@ -797,6 +809,7 @@ import {
   DeviceWifiState,
   DispatchChannel,
   IntercomSession,
+  IntercomSignal,
   ModuleKey,
   OfficerLocation,
   OfficerTrackPoint,
@@ -830,6 +843,9 @@ const deviceEvents = ref<PatrolDeviceEvent[]>([]);
 const channels = ref<DispatchChannel[]>([]);
 const activeIntercomSession = ref<IntercomSession>();
 const intercomDialogVisible = ref(false);
+const intercomRemoteAudio = ref<HTMLAudioElement>();
+const intercomStatus = ref('');
+const intercomConnected = ref(false);
 const officers = ref<OfficerLocation[]>([]);
 const trackPoints = ref<OfficerTrackPoint[]>([]);
 const alerts = ref<PatrolAlert[]>([]);
@@ -910,7 +926,24 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
 
 const pageTitle = computed(() => pageMeta[props.module].title);
 const pageDesc = computed(() => pageMeta[props.module].desc);
+const hasUploadedVersionPackage = computed(() =>
+  Boolean(versionForm.fileId && versionForm.downloadUrl && versionForm.sha256)
+);
+const canPublishVersion = computed(() =>
+  Number(versionForm.versionCode) > 0 &&
+  versionForm.versionName.trim().length > 0 &&
+  versionForm.changelog.trim().length > 0 &&
+  hasUploadedVersionPackage.value &&
+  !versionUploadLoading.value
+);
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+let intercomPeerConnection: RTCPeerConnection | undefined;
+let intercomLocalStream: MediaStream | undefined;
+let intercomRemoteStream: MediaStream | undefined;
+let intercomSignalTimer: ReturnType<typeof setTimeout> | undefined;
+let intercomLastSignalId = '';
+let intercomPendingRemoteIceCandidates: RTCIceCandidateInit[] = [];
+const FALLBACK_ICE_SERVER = 'stun:stun.l.google.com:19302';
 
 const assetUrl = (url?: string) => {
   if (!url) {
@@ -1107,28 +1140,222 @@ const handleCreateSession = async (deviceId: string) => {
 };
 
 const handleCreateIntercom = async (deviceId: string) => {
-  activeIntercomSession.value = (await createIntercomSession(deviceId)).data;
-  intercomDialogVisible.value = true;
-  ElMessage.success('WebRTC/VoIP 对讲会话已创建，等待 App 接入');
-  await loadData();
+  await cleanupIntercomWebRtc(false);
+  try {
+    activeIntercomSession.value = (await createIntercomSession(deviceId)).data;
+    intercomDialogVisible.value = true;
+    await nextTick();
+    await startIntercomWebRtc(true);
+    ElMessage.success('WebRTC 对讲会话已创建，已开始媒体协商');
+    await loadData();
+  } catch (error) {
+    const sessionId = activeIntercomSession.value?.sessionId;
+    await cleanupIntercomWebRtc(false);
+    if (sessionId) {
+      await closeIntercomSession(sessionId).catch(() => undefined);
+    }
+    activeIntercomSession.value = undefined;
+    intercomDialogVisible.value = false;
+    intercomStatus.value = '';
+    ElMessage.error(`WebRTC 对讲启动失败：${toErrorMessage(error)}`);
+    await loadData();
+  }
 };
 
-const handleSendIntercomReady = async () => {
+const handleRestartIntercomWebRtc = async () => {
   if (!activeIntercomSession.value) {
     return;
   }
-  await sendIntercomSignal(activeIntercomSession.value.sessionId, 'ready', JSON.stringify({ side: 'WEB' }));
-  ElMessage.success('测试信令已发送');
+  await cleanupIntercomWebRtc(false);
+  try {
+    await startIntercomWebRtc(false);
+    ElMessage.success('WebRTC 已重新协商');
+  } catch (error) {
+    await cleanupIntercomWebRtc(false);
+    ElMessage.error(`WebRTC 重新协商失败：${toErrorMessage(error)}`);
+  }
 };
 
 const handleCloseIntercom = async () => {
   if (!activeIntercomSession.value) {
     return;
   }
+  await cleanupIntercomWebRtc(true);
   activeIntercomSession.value = (await closeIntercomSession(activeIntercomSession.value.sessionId)).data;
   intercomDialogVisible.value = false;
   ElMessage.success('对讲会话已关闭');
   await loadData();
+};
+
+const startIntercomWebRtc = async (resetSignalCursor: boolean) => {
+  const session = activeIntercomSession.value;
+  if (!session) {
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    intercomStatus.value = '当前浏览器不支持麦克风采集';
+    throw new Error('当前浏览器不支持麦克风采集');
+  }
+  intercomStatus.value = '正在打开麦克风';
+  intercomConnected.value = false;
+  intercomPendingRemoteIceCandidates = [];
+  if (resetSignalCursor) {
+    intercomLastSignalId = '';
+  }
+  intercomLocalStream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    },
+    video: false
+  });
+  intercomRemoteStream = new MediaStream();
+  if (intercomRemoteAudio.value) {
+    intercomRemoteAudio.value.srcObject = intercomRemoteStream;
+  }
+
+  const peerConnection = new RTCPeerConnection({ iceServers: toRtcIceServers(session.iceServers) });
+  intercomPeerConnection = peerConnection;
+  peerConnection.onconnectionstatechange = () => {
+    intercomConnected.value = peerConnection.connectionState === 'connected';
+    intercomStatus.value = `WebRTC ${peerConnection.connectionState}`;
+  };
+  peerConnection.oniceconnectionstatechange = () => {
+    intercomStatus.value = `ICE ${peerConnection.iceConnectionState}`;
+  };
+  peerConnection.ontrack = (event) => {
+    event.streams[0]?.getTracks().forEach((track) => intercomRemoteStream?.addTrack(track));
+    intercomRemoteAudio.value?.play().catch(() => undefined);
+  };
+  peerConnection.onicecandidate = async (event) => {
+    if (event.candidate && activeIntercomSession.value?.sessionId === session.sessionId) {
+      await sendIntercomSignal(session.sessionId, 'ice', JSON.stringify(event.candidate.toJSON()));
+    }
+  };
+  intercomLocalStream.getAudioTracks().forEach((track) => peerConnection.addTrack(track, intercomLocalStream as MediaStream));
+  const offer = await peerConnection.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: false });
+  await peerConnection.setLocalDescription(offer);
+  await sendIntercomSignal(session.sessionId, 'offer', offer.sdp || '');
+  intercomStatus.value = 'offer 已发送，等待 App answer';
+  scheduleIntercomSignalPoll();
+};
+
+const scheduleIntercomSignalPoll = () => {
+  if (intercomSignalTimer) {
+    clearTimeout(intercomSignalTimer);
+  }
+  intercomSignalTimer = setTimeout(pollIntercomSignals, 700);
+};
+
+const pollIntercomSignals = async () => {
+  const session = activeIntercomSession.value;
+  if (!session || !intercomPeerConnection) {
+    return;
+  }
+  try {
+    const signals = (await listIntercomSignals(session.sessionId, intercomLastSignalId)).data;
+    for (const signal of signals) {
+      intercomLastSignalId = signal.signalId;
+      if (signal.sender === 'WEB') {
+        continue;
+      }
+      await handleIntercomSignal(signal);
+    }
+  } catch (error) {
+    intercomStatus.value = `信令轮询失败：${toErrorMessage(error)}`;
+  } finally {
+    if (activeIntercomSession.value && intercomPeerConnection) {
+      scheduleIntercomSignalPoll();
+    }
+  }
+};
+
+const handleIntercomSignal = async (signal: IntercomSignal) => {
+  const peerConnection = intercomPeerConnection;
+  if (!peerConnection) {
+    return;
+  }
+  const type = signal.type.toLowerCase();
+  if (type === 'answer' && signal.payload) {
+    await peerConnection.setRemoteDescription({ type: 'answer', sdp: signal.payload });
+    await flushIntercomPendingIceCandidates(peerConnection);
+    intercomStatus.value = 'answer 已接收，音频流连接中';
+  } else if (type === 'ice' && signal.payload) {
+    await addIntercomRemoteIceCandidate(peerConnection, signal.payload);
+  } else if (type === 'ready') {
+    intercomStatus.value = 'App 已接入，等待媒体协商';
+  } else if (type === 'hangup') {
+    await cleanupIntercomWebRtc(false);
+    intercomStatus.value = 'App 已挂断';
+  }
+};
+
+const addIntercomRemoteIceCandidate = async (peerConnection: RTCPeerConnection, payload: string) => {
+  const candidate = JSON.parse(payload) as RTCIceCandidateInit;
+  if (!candidate.candidate) {
+    return;
+  }
+  if (!peerConnection.remoteDescription) {
+    intercomPendingRemoteIceCandidates.push(candidate);
+    return;
+  }
+  await peerConnection.addIceCandidate(candidate);
+};
+
+const flushIntercomPendingIceCandidates = async (peerConnection: RTCPeerConnection) => {
+  const candidates = intercomPendingRemoteIceCandidates;
+  intercomPendingRemoteIceCandidates = [];
+  for (const candidate of candidates) {
+    await peerConnection.addIceCandidate(candidate);
+  }
+};
+
+const cleanupIntercomWebRtc = async (sendHangup: boolean) => {
+  const sessionId = activeIntercomSession.value?.sessionId;
+  if (intercomSignalTimer) {
+    clearTimeout(intercomSignalTimer);
+    intercomSignalTimer = undefined;
+  }
+  if (sendHangup && sessionId) {
+    await sendIntercomSignal(sessionId, 'hangup', '');
+  }
+  intercomPeerConnection?.getSenders().forEach((sender) => sender.track?.stop());
+  intercomPeerConnection?.close();
+  intercomPeerConnection = undefined;
+  intercomPendingRemoteIceCandidates = [];
+  intercomLocalStream?.getTracks().forEach((track) => track.stop());
+  intercomLocalStream = undefined;
+  intercomRemoteStream?.getTracks().forEach((track) => track.stop());
+  intercomRemoteStream = undefined;
+  if (intercomRemoteAudio.value) {
+    intercomRemoteAudio.value.srcObject = null;
+  }
+  intercomConnected.value = false;
+};
+
+const toRtcIceServers = (urls: string[]): RTCIceServer[] => {
+  const normalized = urls
+    .map((url) => url.trim())
+    .filter((url) => {
+      const lower = url.toLowerCase();
+      if (lower.startsWith('stun:') || lower.startsWith('stuns:')) {
+        return !lower.includes('.local');
+      }
+      // 后端当前只下发无用户名/密码的 TURN 占位地址，浏览器无法用它完成中继。
+      return false;
+    });
+  return (normalized.length ? normalized : [FALLBACK_ICE_SERVER]).map((url) => ({ urls: url }));
+};
+
+const toErrorMessage = (error: unknown) => {
+  if (error instanceof DOMException && error.name === 'NotAllowedError') {
+    return '麦克风权限被拒绝';
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 };
 
 const handleAck = async (alertId: string) => {
@@ -1344,8 +1571,35 @@ const handleToggleControlVehicle = async (row: ControlVehicle) => {
   await loadData();
 };
 
+const validateVersionForm = () => {
+  if (!versionForm.versionCode || versionForm.versionCode < 1) {
+    ElMessage.warning('请填写有效的版本号');
+    return false;
+  }
+  if (!versionForm.versionName.trim()) {
+    ElMessage.warning('请填写版本名称');
+    return false;
+  }
+  if (!versionForm.changelog.trim()) {
+    ElMessage.warning('请填写更新日志');
+    return false;
+  }
+  if (!hasUploadedVersionPackage.value) {
+    ElMessage.warning('请先上传 APK 安装包，系统会自动生成下载地址和 SHA-256');
+    return false;
+  }
+  return true;
+};
+
 const handleCreateVersion = async () => {
-  await createAppVersion({ ...versionForm });
+  if (!validateVersionForm()) {
+    return;
+  }
+  await createAppVersion({
+    ...versionForm,
+    versionName: versionForm.versionName.trim(),
+    changelog: versionForm.changelog.trim()
+  });
   ElMessage.success('App 版本已发布');
   await loadData();
 };
@@ -1358,6 +1612,9 @@ const handleUploadVersionPackage = async (options: any) => {
     return;
   }
   versionUploadLoading.value = true;
+  versionForm.downloadUrl = '';
+  versionForm.sha256 = '';
+  versionForm.fileId = '';
   try {
     const result = (await uploadAppVersionPackage(file)).data;
     versionForm.downloadUrl = result.downloadUrl;
@@ -1481,6 +1738,7 @@ onBeforeUnmount(() => {
   }
   clearMapMarkers();
   clearMediaPreview();
+  void cleanupIntercomWebRtc(false);
   mapInstance.value?.destroy?.();
 });
 </script>
@@ -1649,6 +1907,17 @@ onBeforeUnmount(() => {
 }
 
 .media-preview audio {
+  width: 100%;
+}
+
+.intercom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.intercom-panel audio {
   width: 100%;
 }
 
