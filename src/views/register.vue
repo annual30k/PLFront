@@ -86,7 +86,7 @@ const router = useRouter();
 const { t } = useI18n();
 
 const registerForm = ref<RegisterForm>({
-  tenantId: '',
+  tenantId: '000000',
   username: '',
   password: '',
   confirmPassword: '',
@@ -95,8 +95,8 @@ const registerForm = ref<RegisterForm>({
   userType: 'sys_user'
 });
 
-// 租户开关
-const tenantEnabled = ref(true);
+// 租户开关由后端 tenant.enable 统一配置。
+const tenantEnabled = ref(false);
 
 const equalToPassword = (rule: any, value: string, callback: any) => {
   if (registerForm.value.password !== value) {
@@ -127,7 +127,6 @@ const codeUrl = ref('');
 const loading = ref(false);
 const captchaEnabled = ref(true);
 const registerRef = ref<ElFormInstance>();
-// 租户列表
 const tenantList = ref<TenantVO[]>([]);
 
 const handleRegister = () => {
@@ -171,6 +170,9 @@ const initTenantList = async () => {
     if (tenantList.value != null && tenantList.value.length !== 0) {
       registerForm.value.tenantId = tenantList.value[0].tenantId;
     }
+  } else {
+    tenantList.value = [];
+    registerForm.value.tenantId = registerForm.value.tenantId || '000000';
   }
 };
 

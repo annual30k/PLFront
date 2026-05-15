@@ -11,6 +11,7 @@ import { getLanguage } from '@/lang';
 import { encryptBase64, encryptWithAes, generateAesKey, decryptWithAes, decryptBase64 } from '@/utils/crypto';
 import { encrypt, decrypt } from '@/utils/jsencrypt';
 import router from '@/router';
+import { ElMessage, ElMessageBox, ElNotification, ElLoading } from 'element-plus';
 
 const encryptHeader = 'encrypt-key';
 let downloadLoadingInstance: LoadingInstance;
@@ -129,26 +130,21 @@ service.interceptors.response.use(
       return res.data;
     }
     if (code === 401) {
-      // prettier-ignore
       if (!isRelogin.show) {
         isRelogin.show = true;
-        ElMessageBox.confirm('登录状态已过期，您可以继续留在该页面，或者重新登录', '系统提示', {
-          confirmButtonText: '重新登录',
-          cancelButtonText: '取消',
-          type: 'warning'
-        }).then(() => {
-          isRelogin.show = false;
-          useUserStore().logout().then(() => {
+        ElMessageBox.close();
+        ElMessage.warning('登录状态已过期，请重新登录');
+        useUserStore()
+          .logout()
+          .finally(() => {
+            isRelogin.show = false;
             router.replace({
               path: '/login',
               query: {
                 redirect: encodeURIComponent(router.currentRoute.value.fullPath || '/')
               }
-            })
+            });
           });
-        }).catch(() => {
-          isRelogin.show = false;
-        });
       }
       return Promise.reject('无效的会话，或者会话已过期，请重新登录。');
     } else if (code === HttpStatus.SERVER_ERROR) {

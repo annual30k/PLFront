@@ -5,6 +5,7 @@ export type ModuleKey =
   | 'alerts'
   | 'devices'
   | 'media'
+  | 'reports'
   | 'sos'
   | 'control'
   | 'messages'
@@ -229,6 +230,24 @@ export interface PatrolMediaAction {
   fileId: string;
   status: string;
   message: string;
+}
+
+export interface PatrolDailyReport {
+  reportId: string;
+  missionId: string;
+  reportType: string;
+  deviceId: string;
+  operatorId: string;
+  officerName: string;
+  model: string;
+  backend: string;
+  generatedAt: string;
+  content: string;
+  mediaSelectionJson: string;
+  structuredContextJson: string;
+  requiresHumanConfirmation: boolean;
+  status: string;
+  submitSource: string;
 }
 
 export interface PatrolMediaUploadTask {

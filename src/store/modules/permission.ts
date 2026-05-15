@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import router, { constantRoutes, dynamicRoutes } from '@/router';
 import store from '@/store';
 import { getRouters } from '@/api/menu';
+import { getTenantList } from '@/api/login';
 import auth from '@/plugins/auth';
 import { RouteRecordRaw } from 'vue-router';
 import Layout from '@/layout/index.vue';
@@ -12,6 +13,52 @@ import { createCustomNameComponent } from '@/utils/createCustomNameComponent';
 
 // 匹配views里面所有的.vue文件
 const modules = import.meta.glob('./../../views/**/*.vue');
+const hiddenTenantRoutePatterns = ['/system/tenant', '/system/tenantPackage', '/system/tenant/package'];
+
+const isHiddenTenantRoute = (route: RouteRecordRaw): boolean => {
+  const normalizedPath = route.path?.startsWith('/') ? route.path : `/${route.path ?? ''}`;
+  const name = String(route.name ?? '').toLowerCase();
+  const component = String(route.component ?? '').toLowerCase();
+  const title = String(route.meta?.title ?? '');
+  const permissions = ((route.permissions ?? []) as string[]).join(',').toLowerCase();
+
+  return (
+    hiddenTenantRoutePatterns.some((pattern) => normalizedPath === pattern || normalizedPath.startsWith(`${pattern}/`)) ||
+    name === 'tenant' ||
+    name === 'tenantpackage' ||
+    component === 'system/tenant/index' ||
+    component === 'system/tenantpackage/index' ||
+    title.includes('租户') ||
+    permissions.includes('system:tenant:') ||
+    permissions.includes('system:tenantpackage:')
+  );
+};
+
+const filterHiddenTenantRoutes = (routes: RouteRecordRaw[], parentPath = ''): RouteRecordRaw[] => {
+  return routes
+    .map((route) => {
+      const fullPath = route.path?.startsWith('/') ? route.path : `${parentPath}/${route.path ?? ''}`.replace(/\/+/g, '/');
+      return {
+        ...route,
+        path: route.path,
+        children: route.children ? filterHiddenTenantRoutes(route.children, fullPath) : route.children
+      };
+    })
+    .filter((route) => {
+      const fullPath = route.path?.startsWith('/') ? route.path : `${parentPath}/${route.path ?? ''}`.replace(/\/+/g, '/');
+      return !isHiddenTenantRoute({ ...route, path: fullPath });
+    });
+};
+
+const getTenantEnabled = async (): Promise<boolean> => {
+  try {
+    const { data } = await getTenantList(true);
+    return data.tenantEnabled === undefined ? true : data.tenantEnabled;
+  } catch {
+    return true;
+  }
+};
+
 export const usePermissionStore = defineStore('permission', () => {
   const routes = ref<RouteRecordRaw[]>([]);
   const addRoutes = ref<RouteRecordRaw[]>([]);
@@ -46,8 +93,8 @@ export const usePermissionStore = defineStore('permission', () => {
     sidebarRouters.value = routes;
   };
   const generateRoutes = async (): Promise<RouteRecordRaw[]> => {
-    const res = await getRouters();
-    const { data } = res;
+    const [res, tenantEnabled] = await Promise.all([getRouters(), getTenantEnabled()]);
+    const data = tenantEnabled ? res.data : filterHiddenTenantRoutes(res.data);
     const sdata = JSON.parse(JSON.stringify(data));
     const rdata = JSON.parse(JSON.stringify(data));
     const defaultData = JSON.parse(JSON.stringify(data));

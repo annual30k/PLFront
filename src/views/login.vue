@@ -114,14 +114,13 @@ const codeUrl = ref('');
 const loading = ref(false);
 // 验证码开关
 const captchaEnabled = ref(true);
-// 租户开关
-const tenantEnabled = ref(true);
+// 租户开关由后端 tenant.enable 统一配置。
+const tenantEnabled = ref(false);
 
 // 注册开关
 const register = ref(false);
 const redirect = ref('/');
 const loginRef = ref<ElFormInstance>();
-// 租户列表
 const tenantList = ref<TenantVO[]>([]);
 
 watch(
@@ -189,6 +188,7 @@ const getLoginData = () => {
   const password = localStorage.getItem('password');
   const rememberMe = localStorage.getItem('rememberMe');
   loginForm.value = {
+    ...loginForm.value,
     tenantId: tenantId === null ? String(loginForm.value.tenantId) : tenantId,
     username: username === null ? String(loginForm.value.username) : username,
     password: password === null ? String(loginForm.value.password) : String(password),
@@ -207,6 +207,9 @@ const initTenantList = async () => {
     if (tenantList.value != null && tenantList.value.length !== 0) {
       loginForm.value.tenantId = tenantList.value[0].tenantId;
     }
+  } else {
+    tenantList.value = [];
+    loginForm.value.tenantId = loginForm.value.tenantId || '000000';
   }
 };
 

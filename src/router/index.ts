@@ -120,6 +120,12 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: { title: '媒体证据', icon: 'upload' }
       },
       {
+        path: 'reports',
+        component: () => import('@/views/patrol/reports/index.vue'),
+        name: 'PatrolReports',
+        meta: { title: '日报管理', icon: 'documentation' }
+      },
+      {
         path: 'sos',
         component: () => import('@/views/patrol/sos/index.vue'),
         name: 'PatrolSos',

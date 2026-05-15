@@ -25,6 +25,7 @@ import {
   OfficerTrackPoint,
   PatrolAlert,
   PatrolAlertDisposition,
+  PatrolDailyReport,
   PatrolDevice,
   PatrolDeviceCommand,
   PatrolDeviceEvent,
@@ -262,6 +263,22 @@ export const deletePatrolMedia = (fileId: string): AxiosPromise<PatrolMediaActio
   return request({
     url: `/patrol/media/${fileId}`,
     method: 'delete'
+  });
+};
+
+export const listPatrolDailyReports = (params?: { missionId?: string; status?: string }): AxiosPromise<PatrolDailyReport[]> => {
+  return request({
+    url: '/patrol/daily-reports',
+    method: 'get',
+    params
+  });
+};
+
+export const updatePatrolDailyReportStatus = (reportId: string, status: string): AxiosPromise<PatrolDailyReport> => {
+  return request({
+    url: `/patrol/daily-reports/${reportId}/status`,
+    method: 'patch',
+    data: { status }
   });
 };
 

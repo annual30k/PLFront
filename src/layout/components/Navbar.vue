@@ -113,8 +113,8 @@ const companyName = ref(undefined);
 const tenantList = ref<TenantVO[]>([]);
 // 是否切换了租户
 const dynamic = ref(false);
-// 租户开关
-const tenantEnabled = ref(true);
+// 租户开关由后端 tenant.enable 统一配置。
+const tenantEnabled = ref(false);
 // 搜索菜单
 const searchMenuRef = ref<InstanceType<typeof SearchMenu>>();
 
@@ -145,9 +145,7 @@ const dynamicClearEvent = async () => {
 const initTenantList = async () => {
   const { data } = await getTenantList(true);
   tenantEnabled.value = data.tenantEnabled === undefined ? true : data.tenantEnabled;
-  if (tenantEnabled.value) {
-    tenantList.value = data.voList;
-  }
+  tenantList.value = tenantEnabled.value ? data.voList : [];
 };
 
 defineExpose({

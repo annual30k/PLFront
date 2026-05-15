@@ -7,8 +7,6 @@
           <div class="page-desc">{{ pageDesc }}</div>
         </div>
         <el-space>
-          <el-tag type="success">试点 100 警员 / 150 设备</el-tag>
-          <el-tag type="warning">视频墙 2 / 4 / 8 / 12 / 16</el-tag>
           <el-button type="primary" icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
         </el-space>
       </div>
@@ -406,6 +404,76 @@
       </el-dialog>
     </template>
 
+    <template v-else-if="module === 'reports'">
+      <el-row :gutter="12">
+        <el-col :xs="24" :lg="15">
+          <el-card shadow="never">
+            <template #header>
+              <div class="card-toolbar">
+                <span>小脑日报列表</span>
+                <el-select v-model="reportStatusFilter" clearable placeholder="全部状态" style="width: 160px" @change="loadData">
+                  <el-option label="待复核" value="PENDING_REVIEW" />
+                  <el-option label="已复核" value="REVIEWED" />
+                  <el-option label="已归档" value="ARCHIVED" />
+                </el-select>
+              </div>
+            </template>
+            <el-table :data="dailyReports" border @row-click="activeDailyReport = $event">
+              <el-table-column prop="generatedAt" label="生成时间" width="170" />
+              <el-table-column prop="missionId" label="任务编号" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="officerName" label="警员" width="110" />
+              <el-table-column prop="deviceId" label="小脑/设备" width="140" />
+              <el-table-column prop="model" label="模型" width="150" show-overflow-tooltip />
+              <el-table-column prop="backend" label="后端" width="110" />
+              <el-table-column prop="status" label="状态" width="120" />
+              <el-table-column label="操作" width="150" fixed="right">
+                <template #default="scope">
+                  <el-button link type="primary" @click.stop="activeDailyReport = scope.row">查看</el-button>
+                  <el-button link type="success" @click.stop="handleUpdateDailyReportStatus(scope.row.reportId, 'REVIEWED')">复核</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :lg="9">
+          <el-card shadow="never">
+            <template #header>报告详情</template>
+            <el-empty v-if="!activeDailyReport" description="请选择一份日报" />
+            <template v-else>
+              <el-descriptions :column="1" border class="mb-[12px]">
+                <el-descriptions-item label="日报ID">{{ activeDailyReport.reportId }}</el-descriptions-item>
+                <el-descriptions-item label="任务编号">{{ activeDailyReport.missionId }}</el-descriptions-item>
+                <el-descriptions-item label="警员">{{ activeDailyReport.officerName }} / {{ activeDailyReport.operatorId }}</el-descriptions-item>
+                <el-descriptions-item label="状态">{{ activeDailyReport.status }}</el-descriptions-item>
+                <el-descriptions-item label="提交来源">{{ activeDailyReport.submitSource }}</el-descriptions-item>
+              </el-descriptions>
+              <el-alert
+                v-if="activeDailyReport.requiresHumanConfirmation"
+                class="mb-[12px]"
+                type="warning"
+                title="AI 生成日报需人工复核后归档"
+                :closable="false"
+                show-icon
+              />
+              <div class="report-content">{{ activeDailyReport.content }}</div>
+              <el-collapse class="mt-[12px]">
+                <el-collapse-item title="媒体选择" name="media">
+                  <pre class="json-block">{{ formatJson(activeDailyReport.mediaSelectionJson) }}</pre>
+                </el-collapse-item>
+                <el-collapse-item title="结构化上下文" name="context">
+                  <pre class="json-block">{{ formatJson(activeDailyReport.structuredContextJson) }}</pre>
+                </el-collapse-item>
+              </el-collapse>
+              <el-space class="mt-[12px]">
+                <el-button type="primary" @click="handleUpdateDailyReportStatus(activeDailyReport.reportId, 'REVIEWED')">标记已复核</el-button>
+                <el-button @click="handleUpdateDailyReportStatus(activeDailyReport.reportId, 'ARCHIVED')">归档</el-button>
+              </el-space>
+            </template>
+          </el-card>
+        </el-col>
+      </el-row>
+    </template>
+
     <template v-else-if="module === 'sos'">
       <el-card shadow="never">
         <template #header>SOS 实时求助</template>
@@ -776,6 +844,7 @@ import {
   listOfficerLocations,
   listOfficerTrack,
   listPatrolAlerts,
+  listPatrolDailyReports,
   listPatrolDevices,
   listPatrolMedia,
   listPatrolMessageReceipts,
@@ -794,6 +863,7 @@ import {
   updateControlPersonStatus,
   updateAppVersionStatus,
   updateControlVehicleStatus,
+  updatePatrolDailyReportStatus,
   uploadControlPersonFaceImage,
   uploadAppVersionPackage,
   verifyPatrolMedia
@@ -815,6 +885,7 @@ import {
   OfficerTrackPoint,
   PatrolAlert,
   PatrolAlertDisposition,
+  PatrolDailyReport,
   PatrolDevice,
   PatrolDeviceCommand,
   PatrolDeviceEvent,
@@ -852,6 +923,9 @@ const alerts = ref<PatrolAlert[]>([]);
 const alertDispositions = ref<PatrolAlertDisposition[]>([]);
 const mediaFiles = ref<PatrolMedia[]>([]);
 const mediaUploadTasks = ref<PatrolMediaUploadTask[]>([]);
+const dailyReports = ref<PatrolDailyReport[]>([]);
+const activeDailyReport = ref<PatrolDailyReport>();
+const reportStatusFilter = ref('');
 const sosEvents = ref<PatrolSos[]>([]);
 const sosTimeline = ref<PatrolSosTimeline[]>([]);
 const controlPersons = ref<ControlPerson[]>([]);
@@ -916,6 +990,7 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
   alerts: { title: '布控预警', desc: '接收第三方人脸比对和车牌 OCR 结果，形成预警处置闭环。' },
   devices: { title: '设备管理', desc: '管理智能执法耳机台账、绑定关系、在线状态、电量、固件和指令。' },
   media: { title: '媒体证据', desc: '管理图片、视频、音频、SOS 录音和处置附件，后续接入 MinIO。' },
+  reports: { title: '日报管理', desc: '查看边缘小脑提交的执勤日报、媒体选择、结构化上下文和人工复核状态。' },
   sos: { title: 'SOS 求助', desc: '实时接收一键求助、定位、录音状态、增援 ETA 和处置结果。' },
   control: { title: '人员车辆布控', desc: '维护人员/车辆布控任务，重点人员人脸底库自动同步到边缘小脑。' },
   messages: { title: '消息通知', desc: '向警员、设备或组织发送指挥消息，并查看消息送达状态。' },
@@ -973,7 +1048,8 @@ const realtimeRefreshModules: Record<string, ModuleKey[]> = {
   MEDIA_UPLOAD_CANCELLED: ['media', 'audit'],
   MEDIA_UPLOAD_CLEANED: ['media', 'audit'],
   MEDIA_DELETED: ['dashboard', 'media', 'statistics', 'audit'],
-  MEDIA_VERIFIED: ['media', 'audit']
+  MEDIA_VERIFIED: ['media', 'audit'],
+  DAILY_REPORT_UPDATED: ['dashboard', 'reports', 'audit']
 };
 
 const shouldRefreshForRealtime = (event: PatrolRealtimeEvent) => {
@@ -1035,6 +1111,11 @@ const loadData = async () => {
       const [mediaRes, uploadTasksRes] = await Promise.all([listPatrolMedia(), listPatrolMediaUploadTasks()]);
       mediaFiles.value = mediaRes.data;
       mediaUploadTasks.value = uploadTasksRes.data;
+    } else if (props.module === 'reports') {
+      dailyReports.value = (await listPatrolDailyReports({ status: reportStatusFilter.value })).data;
+      activeDailyReport.value = activeDailyReport.value
+        ? dailyReports.value.find((item) => item.reportId === activeDailyReport.value?.reportId)
+        : dailyReports.value[0];
     } else if (props.module === 'sos') {
       sosEvents.value = (await listPatrolSos()).data;
       if (sosEvents.value.length > 0) {
@@ -1131,6 +1212,23 @@ const handleDeviceCommand = async (deviceId: string, command: string) => {
   ElMessage.success('设备指令已下发');
   if (props.module === 'devices') {
     await loadData();
+  }
+};
+
+const handleUpdateDailyReportStatus = async (reportId: string, status: string) => {
+  activeDailyReport.value = (await updatePatrolDailyReportStatus(reportId, status)).data;
+  ElMessage.success(status === 'ARCHIVED' ? '日报已归档' : '日报已标记复核');
+  await loadData();
+};
+
+const formatJson = (value?: string) => {
+  if (!value) {
+    return '{}';
+  }
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
   }
 };
 
@@ -1908,6 +2006,31 @@ onBeforeUnmount(() => {
 
 .media-preview audio {
   width: 100%;
+}
+
+.report-content {
+  max-height: 360px;
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #111827;
+  font-size: 14px;
+  line-height: 24px;
+  white-space: pre-wrap;
+}
+
+.json-block {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: #111827;
+  color: #d1d5db;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .intercom-panel {

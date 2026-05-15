@@ -59,7 +59,7 @@ export const useUserStore = defineStore('user', () => {
 
   // 注销
   const logout = async (): Promise<void> => {
-    await logoutApi();
+    await to(logoutApi());
     token.value = '';
     roles.value = [];
     permissions.value = [];
