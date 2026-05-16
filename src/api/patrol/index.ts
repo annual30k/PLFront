@@ -17,6 +17,10 @@ import {
   DeviceControlResult,
   DeviceWifiState,
   DispatchChannel,
+  FirmwarePackage,
+  FirmwareUpgradeTask,
+  FirmwareVersion,
+  FirmwareVersionPayload,
   IntercomSession,
   IntercomSignal,
   MessageResult,
@@ -329,6 +333,47 @@ export const updateAppVersionStatus = (versionId: string, status: string): Axios
     url: `/patrol/versions/${versionId}/status`,
     method: 'patch',
     data: { status }
+  });
+};
+
+export const listFirmwareVersions = (): AxiosPromise<FirmwareVersion[]> => {
+  return request({
+    url: '/patrol/firmware-versions',
+    method: 'get'
+  });
+};
+
+export const createFirmwareVersion = (data: FirmwareVersionPayload): AxiosPromise<FirmwareVersion> => {
+  return request({
+    url: '/patrol/firmware-versions',
+    method: 'post',
+    data
+  });
+};
+
+export const uploadFirmwarePackage = (file: File): AxiosPromise<FirmwarePackage> => {
+  const data = new FormData();
+  data.append('file', file);
+  return request({
+    url: '/patrol/firmware-versions/upload',
+    method: 'post',
+    data,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+};
+
+export const updateFirmwareVersionStatus = (firmwareId: string, status: string): AxiosPromise<FirmwareVersion> => {
+  return request({
+    url: `/patrol/firmware-versions/${firmwareId}/status`,
+    method: 'patch',
+    data: { status }
+  });
+};
+
+export const listFirmwareUpgradeTasks = (): AxiosPromise<FirmwareUpgradeTask[]> => {
+  return request({
+    url: '/patrol/firmware-upgrade-tasks',
+    method: 'get'
   });
 };
 

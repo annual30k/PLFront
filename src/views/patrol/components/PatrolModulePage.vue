@@ -801,6 +801,111 @@
           </el-card>
         </el-col>
       </el-row>
+      <el-row :gutter="12" class="mb-[12px]">
+        <el-col :xs="24" :lg="9">
+          <el-card shadow="never">
+            <template #header>新增设备固件</template>
+            <el-form :model="firmwareForm" label-width="96px">
+              <el-form-item label="设备类型" required>
+                <el-select v-model="firmwareForm.deviceType" class="w-full">
+                  <el-option label="眼镜" value="GLASSES" />
+                  <el-option label="耳机" value="HEADSET" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="芯片平台" required>
+                <el-select v-model="firmwareForm.chipset" class="w-full">
+                  <el-option label="炬芯 ACTS" value="ACTS" />
+                  <el-option label="杰理 JL" value="JL" />
+                  <el-option label="通用" value="" />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="厂商">
+                <el-input v-model="firmwareForm.vendor" placeholder="UTE / JL / ACTIONS" clearable />
+              </el-form-item>
+              <el-form-item label="设备型号">
+                <el-input v-model="firmwareForm.deviceModel" placeholder="为空表示不限型号" clearable />
+              </el-form-item>
+              <el-form-item label="硬件版本">
+                <el-input v-model="firmwareForm.hardwareVersion" placeholder="为空表示不限硬件版本" clearable />
+              </el-form-item>
+              <el-form-item label="排序版本号" required>
+                <el-input-number v-model="firmwareForm.versionCode" :min="1" :step="1" />
+              </el-form-item>
+              <el-form-item label="版本名称" required>
+                <el-input v-model="firmwareForm.versionName" placeholder="例如 AT338V000110" clearable />
+              </el-form-item>
+              <el-form-item label="兼容范围">
+                <div class="flex gap-2">
+                  <el-input v-model="firmwareForm.minCurrentVersion" placeholder="最低当前版本" clearable />
+                  <el-input v-model="firmwareForm.maxCurrentVersion" placeholder="最高当前版本" clearable />
+                </div>
+              </el-form-item>
+              <el-form-item label="强制升级">
+                <el-switch v-model="firmwareForm.forceUpdate" />
+              </el-form-item>
+              <el-form-item label="固件包" required>
+                <el-upload :show-file-list="false" accept=".bin,.zip,.ufw" :http-request="handleUploadFirmwarePackage">
+                  <el-button :loading="firmwareUploadLoading" icon="UploadFilled">上传固件包</el-button>
+                </el-upload>
+                <div v-if="firmwareForm.fileId" class="text-xs text-green-600 mt-1">固件包已上传，格式：{{ firmwareForm.packageFormat }}</div>
+                <div v-else class="text-xs text-gray-400 mt-1">支持炬芯 bin/zip 与杰理 ufw，上传后自动回填校验信息</div>
+              </el-form-item>
+              <el-form-item label="SHA-256" required>
+                <el-input v-model="firmwareForm.sha256" disabled placeholder="上传固件包后自动计算" />
+              </el-form-item>
+              <el-form-item label="更新日志" required>
+                <el-input v-model="firmwareForm.changelog" type="textarea" :rows="4" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" icon="Upload" :disabled="!canPublishFirmware" @click="handleCreateFirmware">发布固件</el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :lg="15">
+          <el-card shadow="never">
+            <template #header>设备固件包</template>
+            <el-table :data="firmwareVersions" border>
+              <el-table-column prop="versionCode" label="编码" width="80" />
+              <el-table-column prop="versionName" label="版本" width="150" />
+              <el-table-column prop="deviceType" label="设备" width="90" />
+              <el-table-column prop="chipset" label="芯片" width="90" />
+              <el-table-column prop="packageFormat" label="格式" width="80" />
+              <el-table-column prop="status" label="状态" width="110" />
+              <el-table-column label="强制" width="80">
+                <template #default="scope">{{ scope.row.forceUpdate ? '是' : '否' }}</template>
+              </el-table-column>
+              <el-table-column prop="downloadUrl" label="下载地址" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="publishedAt" label="发布时间" width="170" />
+              <el-table-column label="操作" width="110" fixed="right">
+                <template #default="scope">
+                  <el-button link :type="scope.row.status === 'PUBLISHED' ? 'warning' : 'success'" @click="handleToggleFirmware(scope.row)">
+                    {{ scope.row.status === 'PUBLISHED' ? '停用' : '发布' }}
+                  </el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-col>
+      </el-row>
+      <el-card shadow="never" class="mb-[12px]">
+        <template #header>设备固件升级记录</template>
+        <el-table :data="firmwareUpgradeTasks" border>
+          <el-table-column prop="taskId" label="任务ID" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="deviceId" label="设备ID" min-width="150" show-overflow-tooltip />
+          <el-table-column prop="fromVersion" label="原版本" width="140" />
+          <el-table-column prop="toVersion" label="目标版本" width="140" />
+          <el-table-column prop="status" label="状态" width="120" />
+          <el-table-column label="进度" width="180">
+            <template #default="scope">
+              <el-progress :percentage="Math.round((scope.row.progress || 0) * 100)" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="errorMessage" label="失败原因" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="startedAt" label="开始时间" width="170" />
+          <el-table-column prop="finishedAt" label="完成时间" width="170" />
+        </el-table>
+      </el-card>
       <el-card shadow="never">
         <template #header>运维能力</template>
         <el-descriptions :column="2" border>
@@ -833,6 +938,7 @@ import {
   createControlPerson,
   createControlVehicle,
   createDispatchSession,
+  createFirmwareVersion,
   createIntercomSession,
   deletePatrolMedia,
   downloadPatrolMedia,
@@ -848,6 +954,8 @@ import {
   listControlPersons,
   listControlVehicles,
   listDispatchChannels,
+  listFirmwareUpgradeTasks,
+  listFirmwareVersions,
   listIntercomSignals,
   listOfficerLocations,
   listOfficerTrack,
@@ -871,10 +979,12 @@ import {
   updateControlPersonStatus,
   updateAppVersionStatus,
   updateControlVehicleStatus,
+  updateFirmwareVersionStatus,
   updatePatrolDailyReportContent,
   updatePatrolDailyReportStatus,
   uploadControlPersonFaceImage,
   uploadAppVersionPackage,
+  uploadFirmwarePackage,
   verifyPatrolMedia
 } from '@/api/patrol';
 import {
@@ -887,6 +997,8 @@ import {
   DeviceConfig,
   DeviceWifiState,
   DispatchChannel,
+  FirmwareUpgradeTask,
+  FirmwareVersion,
   IntercomSession,
   IntercomSignal,
   ModuleKey,
@@ -949,6 +1061,9 @@ const statistics = ref<StatisticsOverview>();
 const auditLogs = ref<SystemAuditLog[]>([]);
 const appVersions = ref<AppVersion[]>([]);
 const versionUploadLoading = ref(false);
+const firmwareVersions = ref<FirmwareVersion[]>([]);
+const firmwareUpgradeTasks = ref<FirmwareUpgradeTask[]>([]);
+const firmwareUploadLoading = ref(false);
 const deviceWifiForm = reactive<DeviceWifiState>({
   enabled: false,
   ssid: '',
@@ -978,6 +1093,29 @@ const versionForm = reactive({
   sha256: '',
   fileId: '',
   changelog: '对接平台端版本包管理\n优化媒体上传状态同步'
+});
+const firmwareForm = reactive({
+  deviceType: 'GLASSES',
+  vendor: 'UTE',
+  chipset: 'ACTS',
+  deviceModel: '',
+  hardwareVersion: '',
+  firmwareType: 'FULL',
+  versionCode: 110,
+  versionName: 'AT338V000110',
+  minCurrentVersion: '',
+  maxCurrentVersion: '',
+  forceUpdate: false,
+  downloadUrl: '',
+  sha256: '',
+  fileId: '',
+  fileSizeBytes: 0,
+  packageFormat: '',
+  upgradeMode: 'APP_BLE',
+  grayScope: 'ALL',
+  grayTargets: '',
+  remark: '',
+  changelog: '修复设备连接稳定性\n优化 OTA 升级流程'
 });
 const mapContainer = ref<HTMLDivElement>();
 const mapInstance = shallowRef<any>();
@@ -1020,6 +1158,16 @@ const canPublishVersion = computed(() =>
   versionForm.changelog.trim().length > 0 &&
   hasUploadedVersionPackage.value &&
   !versionUploadLoading.value
+);
+const hasUploadedFirmwarePackage = computed(() =>
+  Boolean(firmwareForm.fileId && firmwareForm.downloadUrl && firmwareForm.sha256)
+);
+const canPublishFirmware = computed(() =>
+  Number(firmwareForm.versionCode) > 0 &&
+  firmwareForm.versionName.trim().length > 0 &&
+  firmwareForm.changelog.trim().length > 0 &&
+  hasUploadedFirmwarePackage.value &&
+  !firmwareUploadLoading.value
 );
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 let intercomPeerConnection: RTCPeerConnection | undefined;
@@ -1149,7 +1297,14 @@ const loadData = async () => {
     } else if (props.module === 'audit') {
       auditLogs.value = (await listSystemAuditLogs()).data;
     } else if (props.module === 'operations') {
-      appVersions.value = (await listAppVersions()).data;
+      const [appVersionsRes, firmwareVersionsRes, firmwareTasksRes] = await Promise.all([
+        listAppVersions(),
+        listFirmwareVersions(),
+        listFirmwareUpgradeTasks()
+      ]);
+      appVersions.value = appVersionsRes.data;
+      firmwareVersions.value = firmwareVersionsRes.data;
+      firmwareUpgradeTasks.value = firmwareTasksRes.data;
     }
   } finally {
     loading.value = false;
@@ -1758,6 +1913,77 @@ const handleUploadVersionPackage = async (options: any) => {
 const handleToggleVersion = async (row: AppVersion) => {
   await updateAppVersionStatus(row.versionId, row.status === 'PUBLISHED' ? 'DISABLED' : 'PUBLISHED');
   ElMessage.success('版本状态已更新');
+  await loadData();
+};
+
+const validateFirmwareForm = () => {
+  if (!firmwareForm.versionCode || firmwareForm.versionCode < 1) {
+    ElMessage.warning('请填写有效的固件排序版本号');
+    return false;
+  }
+  if (!firmwareForm.versionName.trim()) {
+    ElMessage.warning('请填写固件版本名称');
+    return false;
+  }
+  if (!firmwareForm.changelog.trim()) {
+    ElMessage.warning('请填写固件更新日志');
+    return false;
+  }
+  if (!hasUploadedFirmwarePackage.value) {
+    ElMessage.warning('请先上传固件包，系统会自动生成下载地址和 SHA-256');
+    return false;
+  }
+  return true;
+};
+
+const handleCreateFirmware = async () => {
+  if (!validateFirmwareForm()) {
+    return;
+  }
+  await createFirmwareVersion({
+    ...firmwareForm,
+    versionName: firmwareForm.versionName.trim(),
+    changelog: firmwareForm.changelog.trim()
+  });
+  ElMessage.success('设备固件版本已发布');
+  await loadData();
+};
+
+const handleUploadFirmwarePackage = async (options: any) => {
+  const file = options.file as File;
+  const lower = file.name.toLowerCase();
+  if (!lower.endsWith('.bin') && !lower.endsWith('.zip') && !lower.endsWith('.ufw')) {
+    ElMessage.warning('请上传 bin、zip 或 ufw 固件包');
+    options.onError?.(new Error('invalid firmware package'));
+    return;
+  }
+  firmwareUploadLoading.value = true;
+  firmwareForm.downloadUrl = '';
+  firmwareForm.sha256 = '';
+  firmwareForm.fileId = '';
+  try {
+    const result = (await uploadFirmwarePackage(file)).data;
+    firmwareForm.downloadUrl = result.downloadUrl;
+    firmwareForm.sha256 = result.sha256;
+    firmwareForm.fileId = result.fileId;
+    firmwareForm.fileSizeBytes = result.fileSizeBytes;
+    firmwareForm.packageFormat = result.packageFormat;
+    if (!firmwareForm.versionName || firmwareForm.versionName === 'AT338V000110') {
+      firmwareForm.versionName = file.name.replace(/\.(bin|zip|ufw)$/i, '');
+    }
+    ElMessage.success(`固件包已上传：${result.sizeText}`);
+    options.onSuccess?.(result);
+  } catch (error) {
+    options.onError?.(error);
+    throw error;
+  } finally {
+    firmwareUploadLoading.value = false;
+  }
+};
+
+const handleToggleFirmware = async (row: FirmwareVersion) => {
+  await updateFirmwareVersionStatus(row.firmwareId, row.status === 'PUBLISHED' ? 'DISABLED' : 'PUBLISHED');
+  ElMessage.success('固件状态已更新');
   await loadData();
 };
 

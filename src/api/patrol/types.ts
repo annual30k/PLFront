@@ -312,6 +312,82 @@ export interface AppVersionPayload {
   fileId?: string;
 }
 
+export interface FirmwareVersion {
+  firmwareId: string;
+  deviceType: string;
+  vendor: string;
+  chipset: string;
+  deviceModel: string;
+  hardwareVersion: string;
+  firmwareType: string;
+  versionCode: number;
+  versionName: string;
+  minCurrentVersion: string;
+  maxCurrentVersion: string;
+  forceUpdate: boolean;
+  changelog: string;
+  downloadUrl: string;
+  sha256: string;
+  fileId: string;
+  fileSizeBytes: number;
+  packageFormat: string;
+  upgradeMode: string;
+  grayScope: string;
+  grayTargets: string;
+  status: string;
+  publishedAt: string;
+  remark: string;
+}
+
+export interface FirmwarePackage {
+  fileId: string;
+  fileName: string;
+  downloadUrl: string;
+  sha256: string;
+  fileSizeBytes: number;
+  sizeText: string;
+  packageFormat: string;
+}
+
+export interface FirmwareVersionPayload {
+  deviceType: string;
+  vendor: string;
+  chipset: string;
+  deviceModel: string;
+  hardwareVersion: string;
+  firmwareType: string;
+  versionCode: number;
+  versionName: string;
+  minCurrentVersion: string;
+  maxCurrentVersion: string;
+  forceUpdate: boolean;
+  changelog: string;
+  downloadUrl?: string;
+  sha256?: string;
+  fileId?: string;
+  fileSizeBytes?: number;
+  packageFormat?: string;
+  upgradeMode: string;
+  grayScope: string;
+  grayTargets?: string;
+  remark?: string;
+}
+
+export interface FirmwareUpgradeTask {
+  taskId: string;
+  deviceId: string;
+  firmwareId: string;
+  operatorId: string;
+  fromVersion: string;
+  toVersion: string;
+  status: string;
+  progress: number;
+  errorCode: string;
+  errorMessage: string;
+  startedAt: string;
+  finishedAt: string;
+}
+
 export interface PatrolSos {
   sosId: string;
   officerName: string;
