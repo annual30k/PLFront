@@ -35,8 +35,8 @@ defineEmits<{
   clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%);
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(0, 154, 255, 0.72);
-  background: linear-gradient(180deg, rgba(8, 35, 71, 0.82), rgba(2, 14, 32, 0.86)), rgba(3, 14, 32, 0.86);
+  border: 0;
+  background: linear-gradient(180deg, rgba(8, 35, 71, 0.52), rgba(2, 14, 32, 0.56)), rgba(3, 14, 32, 0.46);
   box-shadow:
     inset 0 0 28px rgba(14, 165, 233, 0.2),
     inset 0 1px 0 rgba(125, 211, 252, 0.22),
@@ -47,8 +47,8 @@ defineEmits<{
   content: '';
   position: absolute;
   inset: -4px;
-  background: url('@/assets/patrol/video-wall/hud-panel-frame.png') center / 100% 100% no-repeat;
-  opacity: 0.34;
+  background: url('@/assets/patrol/video-wall/hud-panel-frame-transparent.png') center / 100% 100% no-repeat;
+  opacity: 0.52;
   pointer-events: none;
 }
 

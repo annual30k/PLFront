@@ -86,13 +86,7 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   height: 100vh;
   overflow: hidden;
   color: #dbeafe;
-  background:
-    linear-gradient(90deg, rgba(14, 165, 233, 0.11) 0 1px, transparent 1px 100%) 0 0 / 64px 64px,
-    linear-gradient(0deg, rgba(14, 165, 233, 0.08) 0 1px, transparent 1px 100%) 0 0 / 64px 64px,
-    radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.3), transparent 31%),
-    radial-gradient(circle at 6% 32%, rgba(37, 99, 235, 0.16), transparent 25%),
-    radial-gradient(circle at 92% 35%, rgba(14, 165, 233, 0.15), transparent 28%),
-    linear-gradient(180deg, #010715 0%, #031223 48%, #020715 100%);
+  background: #010715;
   font-family: 'Microsoft YaHei', 'PingFang SC', Arial, sans-serif;
   padding: 0;
   position: relative;
@@ -108,16 +102,11 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
 }
 
 .video-wall-screen::before {
-  inset: 0;
-  background:
-    linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.16), transparent) 50% 16px / 650px 1px no-repeat,
-    radial-gradient(ellipse at 50% 0%, rgba(59, 130, 246, 0.16), transparent 42%);
+  content: none;
 }
 
 .video-wall-screen::after {
-  inset: 0;
-  border: 0;
-  box-shadow: inset 0 0 90px rgba(0, 163, 255, 0.08);
+  content: none;
 }
 
 .wall-layout {

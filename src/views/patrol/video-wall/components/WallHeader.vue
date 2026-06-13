@@ -41,26 +41,21 @@ const enterSystem = () => {
   z-index: 1;
   overflow: hidden;
   border: 0;
-  background:
-    linear-gradient(90deg, rgba(22, 178, 255, 0.34), transparent 17%, transparent 83%, rgba(22, 178, 255, 0.34)) 0 100% / 100% 1px no-repeat,
-    linear-gradient(90deg, transparent, rgba(0, 174, 255, 0.52), transparent) 50% 0 / 60% 1px no-repeat,
-    linear-gradient(180deg, rgba(0, 8, 24, 0.96), rgba(0, 7, 20, 0.92));
-  box-shadow:
-    inset 0 -1px 0 rgba(56, 189, 248, 0.12),
-    0 0 20px rgba(14, 165, 233, 0.08);
+  background: #010715;
+  box-shadow: none;
 }
 
 .wall-header::before {
   content: '';
   position: absolute;
   left: 50%;
-  top: -8px;
+  top: -5px;
   z-index: 0;
-  width: clamp(680px, 51vw, 800px);
-  height: clamp(64px, 7.2vh, 78px);
+  width: clamp(770px, 56vw, 920px);
+  height: calc(var(--header-height) + 8px);
   transform: translateX(-50%);
-  background: url('@/assets/patrol/video-wall/hud-header-frame.png') center / 100% 100% no-repeat;
-  opacity: 0.96;
+  background: url('@/assets/patrol/video-wall/hud-header-frame-image2-v2-crop.png') center / 100% 100% no-repeat;
+  opacity: 1;
 }
 
 .wall-header::after {
@@ -72,9 +67,9 @@ const enterSystem = () => {
   bottom: 0;
   z-index: 0;
   background:
-    linear-gradient(90deg, transparent 0 24%, rgba(16, 185, 255, 0.34) 24% 24.2%, transparent 24.2% 75.8%, rgba(16, 185, 255, 0.34) 75.8% 76%, transparent 76%),
-    radial-gradient(ellipse at 50% 43%, rgba(96, 165, 250, 0.16), transparent 29%);
-  opacity: 0.76;
+    linear-gradient(90deg, rgba(15, 193, 255, 0.36), transparent 18%, transparent 82%, rgba(15, 193, 255, 0.36)) 0 100% / 100% 1px no-repeat,
+    radial-gradient(ellipse at 50% 50%, rgba(37, 99, 235, 0.14), transparent 31%);
+  opacity: 0.72;
 }
 
 .wall-title {
@@ -89,14 +84,7 @@ const enterSystem = () => {
 
 .wall-title::before,
 .wall-title::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  width: clamp(58px, 4.7vw, 74px);
-  height: 6px;
-  transform: translateY(-50%);
-  background: repeating-linear-gradient(90deg, #20e6ff 0 8px, transparent 8px 13px);
-  opacity: 0.88;
+  content: none;
 }
 
 .wall-title::before {
@@ -142,8 +130,9 @@ h1 {
   bottom: -8px;
   height: 1px;
   background:
-    radial-gradient(circle, #18c8ff 0 3px, transparent 3.5px) 0 50% / 8px 8px no-repeat,
+    radial-gradient(circle, #18c8ff 0 2px, transparent 2.8px) 0 50% / 8px 8px no-repeat,
     linear-gradient(90deg, rgba(24, 200, 255, 0.85), rgba(37, 99, 235, 0.54), transparent);
+  opacity: 0.85;
 }
 
 .wall-date::before {
@@ -191,7 +180,7 @@ h1 {
   }
 
   .wall-header::before {
-    width: 690px;
+    width: 720px;
   }
 }
 
@@ -201,7 +190,7 @@ h1 {
   }
 
   .wall-header::before {
-    width: 600px;
+    width: 620px;
   }
 
   h1 {

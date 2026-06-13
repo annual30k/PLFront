@@ -28,8 +28,8 @@ defineProps<{
   border: 0;
   background:
     radial-gradient(circle at 50% 0%, rgba(18, 197, 255, 0.15), transparent 42%),
-    linear-gradient(90deg, rgba(10, 43, 82, 0.42), rgba(3, 17, 39, 0.72) 22%, rgba(3, 17, 39, 0.74) 78%, rgba(10, 43, 82, 0.42)),
-    linear-gradient(180deg, rgba(4, 20, 45, 0.96), rgba(5, 18, 41, 0.98) 46%, rgba(3, 13, 33, 0.97));
+    linear-gradient(90deg, rgba(6, 32, 64, 0.25), rgba(3, 17, 39, 0.42) 22%, rgba(3, 17, 39, 0.42) 78%, rgba(6, 32, 64, 0.25)),
+    linear-gradient(180deg, rgba(4, 20, 45, 0.58), rgba(5, 18, 41, 0.64) 46%, rgba(3, 13, 33, 0.56));
   box-shadow:
     inset 0 0 42px rgba(0, 171, 255, 0.12),
     inset 0 1px 0 rgba(125, 211, 252, 0.16),
@@ -48,11 +48,11 @@ defineProps<{
   z-index: 2;
   box-sizing: border-box;
   border: 0;
-  background-image: url('@/assets/patrol/video-wall/hud-panel-frame.png');
+  background-image: url('@/assets/patrol/video-wall/hud-panel-frame-transparent.png');
   background-repeat: no-repeat;
   background-position: center;
   background-size: 100% 100%;
-  opacity: 0.94;
+  opacity: 1;
 }
 
 .wall-panel::after {
