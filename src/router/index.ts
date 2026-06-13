@@ -27,6 +27,18 @@ import Layout from '@/layout/index.vue';
 // 公共路由
 export const constantRoutes: RouteRecordRaw[] = [
   {
+    path: '/patrol/dispatch',
+    component: () => import('@/views/patrol/video-wall/index.vue'),
+    meta: { public: true, title: '指挥调度' },
+    hidden: true
+  },
+  {
+    path: '/patrol/video-wall',
+    component: () => import('@/views/patrol/video-wall/index.vue'),
+    meta: { public: true, title: '电视墙' },
+    hidden: true
+  },
+  {
     path: '/redirect',
     component: Layout,
     hidden: true,
@@ -180,9 +192,7 @@ export const constantRoutes: RouteRecordRaw[] = [
 ];
 
 // 动态路由，基于用户权限动态去加载
-export const dynamicRoutes: RouteRecordRaw[] = [
-
-];
+export const dynamicRoutes: RouteRecordRaw[] = [];
 
 /**
  * 创建路由

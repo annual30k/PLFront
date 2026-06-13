@@ -183,6 +183,21 @@ export interface OfficerTrackPoint {
   reportedAt: string;
 }
 
+export interface PatrolGeoPoint {
+  latitude: number;
+  longitude: number;
+}
+
+export interface PatrolArea {
+  areaId: string;
+  areaName: string;
+  teamId: string;
+  teamName: string;
+  boundary: PatrolGeoPoint[];
+  route: PatrolGeoPoint[];
+  updatedAt: string;
+}
+
 export interface PatrolAlert {
   alertId: string;
   alertType: string;

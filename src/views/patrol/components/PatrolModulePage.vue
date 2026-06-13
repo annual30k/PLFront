@@ -75,7 +75,12 @@
               <el-space wrap>
                 <el-button size="small" icon="VideoPlay" @click="handleCreateSession(channel.deviceId)">连线</el-button>
                 <el-button size="small" icon="Camera" @click="handleDeviceCommand(channel.deviceId, 'TAKE_PHOTO')">拍照</el-button>
-                <el-button size="small" icon="Microphone" :type="channel.talking ? 'success' : 'primary'" @click="handleCreateIntercom(channel.deviceId)">
+                <el-button
+                  size="small"
+                  icon="Microphone"
+                  :type="channel.talking ? 'success' : 'primary'"
+                  @click="handleCreateIntercom(channel.deviceId)"
+                >
                   {{ channel.talking ? '对讲中' : 'VoIP对讲' }}
                 </el-button>
               </el-space>
@@ -95,12 +100,7 @@
         </el-descriptions>
         <div class="intercom-panel">
           <audio ref="intercomRemoteAudio" autoplay playsinline controls />
-          <el-alert
-            :title="intercomStatus || '等待 WebRTC 信令'"
-            :type="intercomConnected ? 'success' : 'info'"
-            :closable="false"
-            show-icon
-          />
+          <el-alert :title="intercomStatus || '等待 WebRTC 信令'" :type="intercomConnected ? 'success' : 'info'" :closable="false" show-icon />
         </div>
         <template #footer>
           <el-button :disabled="!activeIntercomSession" @click="handleRestartIntercomWebRtc">重新协商</el-button>
@@ -137,6 +137,38 @@
                 </template>
               </el-table-column>
             </el-table>
+          </el-card>
+          <el-card shadow="never" class="mt-[12px]">
+            <template #header>
+              <div class="card-toolbar">
+                <span>执勤辖区配置</span>
+                <el-tag v-if="currentArea" size="small" type="success">同步到 App</el-tag>
+              </div>
+            </template>
+            <el-form :model="areaForm" label-width="76px">
+              <el-row :gutter="8">
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="辖区名称">
+                    <el-input v-model="areaForm.areaName" />
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="执勤组">
+                    <el-input v-model="areaForm.teamName" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-form-item label="边界点">
+                <el-input v-model="areaBoundaryText" type="textarea" :rows="5" />
+              </el-form-item>
+              <el-form-item label="路线点">
+                <el-input v-model="areaRouteText" type="textarea" :rows="4" />
+              </el-form-item>
+              <el-space wrap>
+                <el-button type="primary" icon="Location" @click="handleSavePatrolArea">保存辖区</el-button>
+                <el-button icon="Aim" @click="applyAreaToMap">重绘范围</el-button>
+              </el-space>
+            </el-form>
           </el-card>
           <el-card shadow="never" class="mt-[12px]">
             <template #header>轨迹回放</template>
@@ -545,7 +577,12 @@
               <el-table-column label="人脸底库" width="130">
                 <template #default="scope">
                   <el-space v-if="scope.row.hasFaceImage" :size="6">
-                    <el-image class="face-thumb" :src="assetUrl(scope.row.faceImageUrl)" fit="cover" :preview-src-list="[assetUrl(scope.row.faceImageUrl)]" />
+                    <el-image
+                      class="face-thumb"
+                      :src="assetUrl(scope.row.faceImageUrl)"
+                      fit="cover"
+                      :preview-src-list="[assetUrl(scope.row.faceImageUrl)]"
+                    />
                     <el-tag size="small" type="success">已入库</el-tag>
                   </el-space>
                   <el-tag v-else size="small" type="info">未上传</el-tag>
@@ -943,6 +980,7 @@ import {
   deletePatrolMedia,
   downloadPatrolMedia,
   getPatrolDashboard,
+  getCurrentPatrolArea,
   getStatisticsOverview,
   getDeviceConfig,
   importControlPersons,
@@ -959,6 +997,7 @@ import {
   listIntercomSignals,
   listOfficerLocations,
   listOfficerTrack,
+  listPatrolAreas,
   listPatrolAlerts,
   listPatrolDailyReports,
   listPatrolDevices,
@@ -974,6 +1013,7 @@ import {
   sendPatrolMessage,
   sendDeviceCommand,
   sendIntercomSignal,
+  savePatrolArea,
   startDeviceRealtimeAudio,
   stopDeviceRealtimeAudio,
   updateControlPersonStatus,
@@ -1004,6 +1044,8 @@ import {
   ModuleKey,
   OfficerLocation,
   OfficerTrackPoint,
+  PatrolArea,
+  PatrolGeoPoint,
   PatrolAlert,
   PatrolAlertDisposition,
   PatrolDailyReport,
@@ -1040,6 +1082,8 @@ const intercomStatus = ref('');
 const intercomConnected = ref(false);
 const officers = ref<OfficerLocation[]>([]);
 const trackPoints = ref<OfficerTrackPoint[]>([]);
+const patrolAreas = ref<PatrolArea[]>([]);
+const currentArea = ref<PatrolArea>();
 const alerts = ref<PatrolAlert[]>([]);
 const alertDispositions = ref<PatrolAlertDisposition[]>([]);
 const mediaFiles = ref<PatrolMedia[]>([]);
@@ -1085,6 +1129,17 @@ const messageForm = reactive({
   title: '指挥消息',
   content: '请保持在线并确认当前位置。'
 });
+const areaForm = reactive<PatrolArea>({
+  areaId: 'AREA-FZ-WQ-001',
+  areaName: '五四路核心勤务区',
+  teamId: 'PTL-GROUP-A',
+  teamName: '第一巡逻支队 A 组',
+  boundary: [],
+  route: [],
+  updatedAt: ''
+});
+const areaBoundaryText = ref('26.1048,119.3009\n26.1044,119.3137\n26.0977,119.3145\n26.0968,119.3024');
+const areaRouteText = ref('26.1036,119.3025\n26.1017,119.3065\n26.0995,119.3104\n26.0979,119.3131');
 const versionForm = reactive({
   versionCode: 3,
   versionName: '1.3.0',
@@ -1121,6 +1176,7 @@ const mapContainer = ref<HTMLDivElement>();
 const mapInstance = shallowRef<any>();
 const mapInfoWindow = shallowRef<any>();
 const mapMarkers: any[] = [];
+const mapOverlays: any[] = [];
 const mapError = ref('');
 const mediaPreview = reactive({
   visible: false,
@@ -1149,25 +1205,23 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
 
 const pageTitle = computed(() => pageMeta[props.module].title);
 const pageDesc = computed(() => pageMeta[props.module].desc);
-const hasUploadedVersionPackage = computed(() =>
-  Boolean(versionForm.fileId && versionForm.downloadUrl && versionForm.sha256)
+const hasUploadedVersionPackage = computed(() => Boolean(versionForm.fileId && versionForm.downloadUrl && versionForm.sha256));
+const canPublishVersion = computed(
+  () =>
+    Number(versionForm.versionCode) > 0 &&
+    versionForm.versionName.trim().length > 0 &&
+    versionForm.changelog.trim().length > 0 &&
+    hasUploadedVersionPackage.value &&
+    !versionUploadLoading.value
 );
-const canPublishVersion = computed(() =>
-  Number(versionForm.versionCode) > 0 &&
-  versionForm.versionName.trim().length > 0 &&
-  versionForm.changelog.trim().length > 0 &&
-  hasUploadedVersionPackage.value &&
-  !versionUploadLoading.value
-);
-const hasUploadedFirmwarePackage = computed(() =>
-  Boolean(firmwareForm.fileId && firmwareForm.downloadUrl && firmwareForm.sha256)
-);
-const canPublishFirmware = computed(() =>
-  Number(firmwareForm.versionCode) > 0 &&
-  firmwareForm.versionName.trim().length > 0 &&
-  firmwareForm.changelog.trim().length > 0 &&
-  hasUploadedFirmwarePackage.value &&
-  !firmwareUploadLoading.value
+const hasUploadedFirmwarePackage = computed(() => Boolean(firmwareForm.fileId && firmwareForm.downloadUrl && firmwareForm.sha256));
+const canPublishFirmware = computed(
+  () =>
+    Number(firmwareForm.versionCode) > 0 &&
+    firmwareForm.versionName.trim().length > 0 &&
+    firmwareForm.changelog.trim().length > 0 &&
+    hasUploadedFirmwarePackage.value &&
+    !firmwareUploadLoading.value
 );
 let realtimeRefreshTimer: ReturnType<typeof setTimeout> | undefined;
 let intercomPeerConnection: RTCPeerConnection | undefined;
@@ -1207,7 +1261,8 @@ const realtimeRefreshModules: Record<string, ModuleKey[]> = {
   MEDIA_UPLOAD_CLEANED: ['media', 'audit'],
   MEDIA_DELETED: ['dashboard', 'media', 'statistics', 'audit'],
   MEDIA_VERIFIED: ['media', 'audit'],
-  DAILY_REPORT_UPDATED: ['dashboard', 'reports', 'audit']
+  DAILY_REPORT_UPDATED: ['dashboard', 'reports', 'audit'],
+  PATROL_AREA_UPDATED: ['map', 'dashboard']
 };
 
 const shouldRefreshForRealtime = (event: PatrolRealtimeEvent) => {
@@ -1240,7 +1295,10 @@ const loadData = async () => {
     } else if (props.module === 'dispatch') {
       channels.value = (await listDispatchChannels()).data;
     } else if (props.module === 'map') {
-      officers.value = (await listOfficerLocations()).data;
+      const [officersRes, areasRes, currentAreaRes] = await Promise.all([listOfficerLocations(), listPatrolAreas(), getCurrentPatrolArea()]);
+      officers.value = officersRes.data;
+      patrolAreas.value = areasRes.data;
+      applyAreaForm(currentAreaRes.data);
       await nextTick();
       await renderOfficerMap();
     } else if (props.module === 'alerts') {
@@ -1666,6 +1724,62 @@ const handleLoadTrack = async (badgeNo: string) => {
   ElMessage.success('轨迹已加载');
 };
 
+const applyAreaForm = (area: PatrolArea) => {
+  currentArea.value = area;
+  Object.assign(areaForm, area);
+  areaBoundaryText.value = pointsToText(area.boundary);
+  areaRouteText.value = pointsToText(area.route);
+};
+
+const pointsToText = (points: PatrolGeoPoint[]) => (points || []).map((point) => `${point.latitude},${point.longitude}`).join('\n');
+
+const parsePointText = (value: string): PatrolGeoPoint[] => {
+  return value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [latitudeText, longitudeText] = line.split(/[,，\s]+/);
+      return {
+        latitude: Number(latitudeText),
+        longitude: Number(longitudeText)
+      };
+    })
+    .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude));
+};
+
+const handleSavePatrolArea = async () => {
+  const boundary = parsePointText(areaBoundaryText.value);
+  const route = parsePointText(areaRouteText.value);
+  if (boundary.length < 3) {
+    ElMessage.warning('边界至少需要 3 个点');
+    return;
+  }
+  if (route.length < 2) {
+    ElMessage.warning('路线至少需要 2 个点');
+    return;
+  }
+  const saved = (
+    await savePatrolArea({
+      ...areaForm,
+      boundary,
+      route
+    })
+  ).data;
+  applyAreaForm(saved);
+  ElMessage.success('执勤辖区已保存并同步到移动端');
+  await renderOfficerMap();
+};
+
+const applyAreaToMap = async () => {
+  currentArea.value = {
+    ...areaForm,
+    boundary: parsePointText(areaBoundaryText.value),
+    route: parsePointText(areaRouteText.value)
+  };
+  await renderOfficerMap();
+};
+
 const handleVerifyMedia = async (fileId: string) => {
   const result = (await verifyPatrolMedia(fileId)).data;
   ElMessage.success(result.message);
@@ -2007,6 +2121,7 @@ const renderOfficerMap = async () => {
     }
 
     clearMapMarkers();
+    renderAreaOverlay(AMap);
     const points = officers.value
       .map((officer) => ({
         officer,
@@ -2041,16 +2156,56 @@ const renderOfficerMap = async () => {
     });
 
     if (mapMarkers.length) {
-      mapInstance.value.setFitView(mapMarkers, false, [64, 48, 64, 48]);
+      mapInstance.value.setFitView([...mapMarkers, ...mapOverlays], false, [64, 48, 64, 48]);
+    } else if (mapOverlays.length) {
+      mapInstance.value.setFitView(mapOverlays, false, [64, 48, 64, 48]);
     }
   } catch (error) {
     mapError.value = error instanceof Error ? error.message : '高德地图 SDK 初始化异常';
   }
 };
 
+const renderAreaOverlay = (AMap: any) => {
+  const area = currentArea.value;
+  if (!area) {
+    return;
+  }
+  const boundary = area.boundary.map((point) => [point.longitude, point.latitude]);
+  const route = area.route.map((point) => [point.longitude, point.latitude]);
+  if (boundary.length >= 3) {
+    const polygon = new AMap.Polygon({
+      path: boundary,
+      strokeColor: '#00d8ff',
+      strokeOpacity: 0.96,
+      strokeWeight: 3,
+      fillColor: '#0ea5e9',
+      fillOpacity: 0.16,
+      zIndex: 50
+    });
+    polygon.setMap(mapInstance.value);
+    mapOverlays.push(polygon);
+  }
+  if (route.length >= 2) {
+    const polyline = new AMap.Polyline({
+      path: route,
+      strokeColor: '#facc15',
+      strokeOpacity: 0.95,
+      strokeWeight: 6,
+      strokeStyle: 'solid',
+      lineJoin: 'round',
+      zIndex: 55
+    });
+    polyline.setMap(mapInstance.value);
+    mapOverlays.push(polyline);
+  }
+};
+
 const clearMapMarkers = () => {
   while (mapMarkers.length) {
     mapMarkers.pop()?.setMap(null);
+  }
+  while (mapOverlays.length) {
+    mapOverlays.pop()?.setMap(null);
   }
 };
 

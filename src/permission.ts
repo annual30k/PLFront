@@ -11,7 +11,7 @@ import { usePermissionStore } from '@/store/modules/permission';
 import { ElMessage } from 'element-plus/es';
 
 NProgress.configure({ showSpinner: false });
-const whiteList = ['/login', '/register', '/social-callback', '/register*', '/register/*'];
+const whiteList = ['/login', '/register', '/social-callback', '/register*', '/register/*', '/patrol/video-wall', '/patrol/dispatch'];
 
 const isWhiteList = (path: string) => {
   return whiteList.some((pattern) => isPathMatch(pattern, path));
@@ -19,6 +19,10 @@ const isWhiteList = (path: string) => {
 
 router.beforeEach(async (to, from, next) => {
   NProgress.start();
+  if (to.path === '/patrol/video-wall' || to.path === '/patrol/dispatch' || to.meta.public) {
+    next();
+    return;
+  }
   if (getToken()) {
     to.meta.title && useSettingsStore().setTitle(to.meta.title as string);
     /* has token*/

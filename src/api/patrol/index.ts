@@ -27,6 +27,7 @@ import {
   MessageSendPayload,
   OfficerLocation,
   OfficerTrackPoint,
+  PatrolArea,
   PatrolAlert,
   PatrolAlertDisposition,
   PatrolDailyReport,
@@ -203,6 +204,28 @@ export const listOfficerTrack = (badgeNo: string): AxiosPromise<OfficerTrackPoin
   return request({
     url: `/patrol/map/officers/${badgeNo}/track`,
     method: 'get'
+  });
+};
+
+export const listPatrolAreas = (): AxiosPromise<PatrolArea[]> => {
+  return request({
+    url: '/patrol/areas',
+    method: 'get'
+  });
+};
+
+export const getCurrentPatrolArea = (): AxiosPromise<PatrolArea> => {
+  return request({
+    url: '/patrol/areas/current',
+    method: 'get'
+  });
+};
+
+export const savePatrolArea = (data: PatrolArea): AxiosPromise<PatrolArea> => {
+  return request({
+    url: '/patrol/areas',
+    method: 'post',
+    data
   });
 };
 
