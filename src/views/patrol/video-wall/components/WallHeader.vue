@@ -48,18 +48,17 @@ const enterSystem = () => {
 .wall-header::before {
   content: '';
   position: absolute;
-  left: 50%;
-  top: -5px;
+  left: 0;
+  right: 0;
+  top: 0;
   z-index: 0;
-  width: clamp(770px, 56vw, 920px);
-  height: calc(var(--header-height) + 8px);
-  transform: translateX(-50%);
-  background: url('@/assets/patrol/video-wall/hud-header-frame-image2-v2-crop.png') center / 100% 100% no-repeat;
+  height: calc(var(--header-height) + 2px);
+  background: url('@/assets/patrol/video-wall/hud-header-frame-image2-v4.png') center / 100% 100% no-repeat;
   opacity: 1;
 }
 
 .wall-header::after {
-  content: '';
+  content: none;
   position: absolute;
   left: 0;
   right: 0;
@@ -123,7 +122,7 @@ h1 {
 }
 
 .wall-date::after {
-  content: '';
+  content: none;
   position: absolute;
   left: 7px;
   right: -42px;
@@ -136,7 +135,7 @@ h1 {
 }
 
 .wall-date::before {
-  content: '';
+  content: none;
   position: absolute;
   right: -84px;
   bottom: -2px;
@@ -178,19 +177,11 @@ h1 {
   h1 {
     font-size: 24px;
   }
-
-  .wall-header::before {
-    width: 720px;
-  }
 }
 
 @media (max-width: 1024px) {
   .wall-header {
     padding: 0 12px;
-  }
-
-  .wall-header::before {
-    width: 620px;
   }
 
   h1 {
