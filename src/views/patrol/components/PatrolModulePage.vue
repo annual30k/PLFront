@@ -67,7 +67,21 @@
                 <el-tag :type="channel.state === 'LIVE' ? 'success' : 'warning'" size="small">{{ channel.state }}</el-tag>
                 <span>{{ channel.mode }} · {{ channel.latencyMs || '--' }} ms</span>
               </div>
-              <div class="video-placeholder">{{ channel.channelId }}</div>
+              <div class="video-placeholder">
+                <video
+                  v-if="channel.streamUrl"
+                  class="inline-live-video"
+                  :src="channel.streamUrl"
+                  controls
+                  muted
+                  playsinline
+                  preload="metadata"
+                />
+                <div v-else class="video-standby">
+                  <strong>{{ channel.channelId }}</strong>
+                  <span>等待设备实时流接入</span>
+                </div>
+              </div>
               <div class="video-meta">
                 <strong>{{ channel.officerName }}</strong>
                 <span>{{ channel.deviceId }} · {{ channel.locationText }}</span>
@@ -247,6 +261,70 @@
             </template>
           </el-table-column>
         </el-table>
+      </el-card>
+      <el-card shadow="never" class="mb-[12px]">
+        <template #header>
+          <div class="card-toolbar">
+            <span>智能眼镜与实时流播放器</span>
+            <el-tag v-if="activeDispatchSession" :type="streamPlayerStatusType">{{ activeDispatchSession.state }}</el-tag>
+          </div>
+        </template>
+        <el-empty v-if="!selectedDeviceConfig" description="请选择设备后查看实时流" />
+        <el-row v-else :gutter="12">
+          <el-col :xs="24" :lg="9">
+            <div class="device-product-panel">
+              <img :src="smartGlassesImage" alt="智能眼镜设备" />
+              <div class="device-product-meta">
+                <strong>{{ selectedDeviceConfig.deviceName }}</strong>
+                <span>{{ selectedDeviceConfig.deviceId }} · {{ selectedDeviceConfig.officerName }}</span>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :lg="15">
+            <div ref="streamPlayerRef" class="stream-player">
+              <video
+                ref="streamVideoRef"
+                class="stream-video"
+                :src="streamVideoUrl"
+                :muted="streamMuted"
+                controls
+                playsinline
+                preload="metadata"
+                @play="streamPaused = false"
+                @pause="streamPaused = true"
+                @volumechange="syncStreamMuted"
+              />
+              <div v-if="!streamVideoUrl" class="stream-empty-state">
+                <strong>等待智能眼镜推流</strong>
+                <span>{{ activeDispatchSession ? '调度会话已创建，尚未收到播放地址' : '点击开始实时流创建播放会话' }}</span>
+              </div>
+              <div class="stream-player-toolbar">
+                <div class="stream-session-info">
+                  <strong>{{ selectedDeviceConfig.deviceId }}</strong>
+                  <span>{{ streamSessionText }}</span>
+                </div>
+                <el-space wrap>
+                  <el-radio-group v-model="streamQuality" size="small" @change="handleStreamQualityChange">
+                    <el-radio-button v-for="item in streamQualityOptions" :key="item.value" :label="item.value">
+                      {{ item.label }}
+                    </el-radio-button>
+                  </el-radio-group>
+                  <el-button size="small" :icon="streamPaused ? 'VideoPlay' : 'VideoPause'" @click="toggleStreamPlayback">
+                    {{ streamPaused ? '播放' : '暂停' }}
+                  </el-button>
+                  <el-button size="small" :icon="streamMuted ? 'Mute' : 'Microphone'" @click="toggleStreamMuted">
+                    {{ streamMuted ? '取消静音' : '静音' }}
+                  </el-button>
+                  <el-button size="small" icon="FullScreen" @click="requestStreamFullscreen">全屏</el-button>
+                  <el-button size="small" type="primary" icon="VideoCamera" @click="handleCreateSession(selectedDeviceConfig.deviceId)">
+                    开始实时流
+                  </el-button>
+                  <el-button size="small" type="danger" plain @click="handleCloseStreamSession">断开</el-button>
+                </el-space>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
       </el-card>
       <el-card shadow="never" class="mb-[12px]">
         <template #header>
@@ -966,6 +1044,7 @@ import {
   applyDeviceSettings,
   assignPatrolSosBackup,
   cleanPatrolMediaUploadTasks,
+  closeDispatchSession,
   closeIntercomSession,
   configureDeviceWifi,
   listAlertDispositions,
@@ -1037,6 +1116,7 @@ import {
   DeviceConfig,
   DeviceWifiState,
   DispatchChannel,
+  DispatchSession,
   FirmwareUpgradeTask,
   FirmwareVersion,
   IntercomSession,
@@ -1061,6 +1141,7 @@ import {
   StatisticsOverview,
   SystemAuditLog
 } from '@/api/patrol/types';
+import smartGlassesImage from '@/assets/patrol/devices/smart-glasses-image2.png';
 import { loadAMap } from '@/utils/amap';
 import { PATROL_REALTIME_EVENT, PatrolRealtimeEvent } from '@/utils/sse';
 
@@ -1075,6 +1156,12 @@ const selectedDeviceConfig = ref<DeviceConfig>();
 const deviceCommands = ref<PatrolDeviceCommand[]>([]);
 const deviceEvents = ref<PatrolDeviceEvent[]>([]);
 const channels = ref<DispatchChannel[]>([]);
+const activeDispatchSession = ref<DispatchSession>();
+const streamPlayerRef = ref<HTMLDivElement>();
+const streamVideoRef = ref<HTMLVideoElement>();
+const streamQuality = ref('LOW_LATENCY');
+const streamMuted = ref(true);
+const streamPaused = ref(true);
 const activeIntercomSession = ref<IntercomSession>();
 const intercomDialogVisible = ref(false);
 const intercomRemoteAudio = ref<HTMLAudioElement>();
@@ -1186,6 +1273,11 @@ const mediaPreview = reactive({
   sha256: '',
   watermarkToken: ''
 });
+const streamQualityOptions = [
+  { label: '流畅', value: 'LOW_LATENCY' },
+  { label: '高清', value: 'HIGH_DEFINITION' },
+  { label: '自动', value: 'AUTO' }
+];
 
 const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
   dashboard: { title: '指挥工作台', desc: '聚合在线警力、设备、视频会话、预警、SOS 与媒体上传状态。' },
@@ -1205,6 +1297,23 @@ const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
 
 const pageTitle = computed(() => pageMeta[props.module].title);
 const pageDesc = computed(() => pageMeta[props.module].desc);
+const streamVideoUrl = computed(() => activeDispatchSession.value?.relayUrl || '');
+const streamSessionText = computed(() => {
+  if (!activeDispatchSession.value) {
+    return '未创建播放会话';
+  }
+  return `${activeDispatchSession.value.sessionId} · ${activeDispatchSession.value.mode}`;
+});
+const streamPlayerStatusType = computed(() => {
+  const state = activeDispatchSession.value?.state;
+  if (state === 'LIVE' || state === 'READY') {
+    return 'success';
+  }
+  if (state === 'RESERVED') {
+    return 'warning';
+  }
+  return 'info';
+});
 const hasUploadedVersionPackage = computed(() => Boolean(versionForm.fileId && versionForm.downloadUrl && versionForm.sha256));
 const canPublishVersion = computed(
   () =>
@@ -1307,16 +1416,18 @@ const loadData = async () => {
         alertDispositions.value = (await listAlertDispositions(alerts.value[0].alertId)).data;
       }
     } else if (props.module === 'devices') {
-      const [devicesRes, configsRes, commandsRes, eventsRes] = await Promise.all([
+      const [devicesRes, configsRes, commandsRes, eventsRes, channelsRes] = await Promise.all([
         listPatrolDevices(),
         listDeviceConfigs(),
         listDeviceCommands(),
-        listDeviceEvents()
+        listDeviceEvents(),
+        listDispatchChannels()
       ]);
       devices.value = devicesRes.data;
       deviceConfigs.value = configsRes.data;
       deviceCommands.value = commandsRes.data;
       deviceEvents.value = eventsRes.data;
+      channels.value = channelsRes.data;
       const selected = selectedDeviceConfig.value
         ? deviceConfigs.value.find((item) => item.deviceId === selectedDeviceConfig.value?.deviceId)
         : deviceConfigs.value[0];
@@ -1470,8 +1581,65 @@ const formatJson = (value?: string) => {
 };
 
 const handleCreateSession = async (deviceId: string) => {
-  await createDispatchSession(deviceId);
-  ElMessage.success('调度会话已创建');
+  activeDispatchSession.value = (await createDispatchSession(deviceId, streamQuality.value)).data;
+  await nextTick();
+  if (streamVideoUrl.value) {
+    streamVideoRef.value?.load();
+    await streamVideoRef.value?.play().catch(() => undefined);
+  }
+  ElMessage.success(activeDispatchSession.value.relayUrl ? '实时流播放器已接入' : '播放会话已创建，等待设备推流地址');
+};
+
+const handleStreamQualityChange = async () => {
+  if (!selectedDeviceConfig.value) {
+    return;
+  }
+  await handleCreateSession(selectedDeviceConfig.value.deviceId);
+};
+
+const toggleStreamPlayback = async () => {
+  const video = streamVideoRef.value;
+  if (!video || !streamVideoUrl.value) {
+    ElMessage.info('当前没有可播放的实时流地址');
+    return;
+  }
+  if (video.paused) {
+    await video.play();
+  } else {
+    video.pause();
+  }
+};
+
+const toggleStreamMuted = () => {
+  streamMuted.value = !streamMuted.value;
+  if (streamVideoRef.value) {
+    streamVideoRef.value.muted = streamMuted.value;
+  }
+};
+
+const syncStreamMuted = () => {
+  if (streamVideoRef.value) {
+    streamMuted.value = streamVideoRef.value.muted;
+  }
+};
+
+const requestStreamFullscreen = async () => {
+  const target = streamPlayerRef.value;
+  if (!target?.requestFullscreen) {
+    ElMessage.warning('当前浏览器不支持播放器全屏');
+    return;
+  }
+  await target.requestFullscreen();
+};
+
+const handleCloseStreamSession = async () => {
+  if (activeDispatchSession.value?.sessionId) {
+    await closeDispatchSession(activeDispatchSession.value.sessionId);
+  }
+  streamVideoRef.value?.pause();
+  activeDispatchSession.value = undefined;
+  streamPaused.value = true;
+  ElMessage.success('实时流会话已断开');
 };
 
 const handleCreateIntercom = async (deviceId: string) => {
@@ -2316,6 +2484,121 @@ onBeforeUnmount(() => {
   gap: 8px;
 }
 
+.device-product-panel {
+  display: grid;
+  min-height: 332px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.device-product-panel img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: #f8fafc;
+}
+
+.device-product-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.device-product-meta strong,
+.device-product-meta span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-product-meta span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.stream-player {
+  position: relative;
+  display: grid;
+  min-height: 332px;
+  overflow: hidden;
+  border: 1px solid #111827;
+  border-radius: 6px;
+  background: #020617;
+}
+
+.stream-video {
+  width: 100%;
+  min-height: 270px;
+  aspect-ratio: 16 / 9;
+  background: #020617;
+  object-fit: contain;
+}
+
+.stream-empty-state {
+  position: absolute;
+  inset: 0 0 62px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #e5e7eb;
+  text-align: center;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(37, 99, 235, 0.22), transparent 32%),
+    repeating-linear-gradient(0deg, rgba(148, 163, 184, 0.08) 0 1px, transparent 1px 8px);
+}
+
+.stream-empty-state strong {
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.stream-empty-state span {
+  max-width: min(420px, calc(100% - 32px));
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.stream-player-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 62px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  background: #0f172a;
+}
+
+.stream-session-info {
+  display: flex;
+  min-width: 148px;
+  flex-direction: column;
+  gap: 2px;
+  color: #e5e7eb;
+}
+
+.stream-session-info strong,
+.stream-session-info span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-session-info span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
 .face-thumb {
   width: 32px;
   height: 32px;
@@ -2337,17 +2620,42 @@ onBeforeUnmount(() => {
 }
 
 .video-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  overflow: hidden;
   height: 132px;
   margin: 10px 0;
   border-radius: 4px;
   background: linear-gradient(135deg, #111827, #1f2937);
   color: #93c5fd;
+}
+
+.inline-live-video,
+.video-standby {
+  width: 100%;
+  height: 100%;
+}
+
+.inline-live-video {
+  display: block;
+  object-fit: cover;
+}
+
+.video-standby {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
+}
+
+.video-standby span {
+  color: #9ca3af;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .video-meta {
@@ -2444,6 +2752,17 @@ onBeforeUnmount(() => {
 
 .intercom-panel audio {
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .stream-player-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .stream-session-info {
+    width: 100%;
+  }
 }
 
 :deep(.amap-officer-label) {

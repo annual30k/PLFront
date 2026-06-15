@@ -138,6 +138,21 @@ export interface DispatchChannel {
   latencyMs: number;
   locationText: string;
   talking: boolean;
+  streamUrl?: string;
+}
+
+export interface DispatchSession {
+  sessionId: string;
+  deviceId: string;
+  mode: string;
+  relayUrl?: string;
+  state: string;
+}
+
+export interface DispatchAction {
+  sessionId: string;
+  nextState: string;
+  message: string;
 }
 
 export interface IntercomSession {

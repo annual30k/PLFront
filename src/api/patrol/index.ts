@@ -16,7 +16,9 @@ import {
   DeviceConfig,
   DeviceControlResult,
   DeviceWifiState,
+  DispatchAction,
   DispatchChannel,
+  DispatchSession,
   FirmwarePackage,
   FirmwareUpgradeTask,
   FirmwareVersion,
@@ -146,11 +148,18 @@ export const listDispatchChannels = (): AxiosPromise<DispatchChannel[]> => {
   });
 };
 
-export const createDispatchSession = (deviceId: string, mode = 'LOW_LATENCY') => {
+export const createDispatchSession = (deviceId: string, mode = 'LOW_LATENCY'): AxiosPromise<DispatchSession> => {
   return request({
     url: '/patrol/dispatch/sessions',
     method: 'post',
     data: { deviceId, mode }
+  });
+};
+
+export const closeDispatchSession = (sessionId: string): AxiosPromise<DispatchAction> => {
+  return request({
+    url: `/patrol/dispatch/sessions/${sessionId}`,
+    method: 'delete'
   });
 };
 
