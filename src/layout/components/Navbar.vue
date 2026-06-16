@@ -65,7 +65,7 @@
       <div class="avatar-container">
         <el-dropdown class="right-menu-item hover-effect" trigger="click" @command="handleCommand">
           <div class="avatar-wrapper">
-            <img :src="userStore.avatar" class="user-avatar" />
+            <img :src="navbarAvatar" class="user-avatar" @error="useDefaultAvatar" />
             <el-icon><caret-bottom /></el-icon>
           </div>
           <template #dropdown>
@@ -96,6 +96,7 @@ import { useNoticeStore } from '@/store/modules/notice';
 import { getTenantList } from '@/api/login';
 import { dynamicClear, dynamicTenant } from '@/api/system/tenant';
 import { TenantVO } from '@/api/types';
+import { defaultAvatarUrl, resolveAvatarUrl } from '@/utils/avatar';
 import notice from './notice/index.vue';
 import router from '@/router';
 import { ElMessageBoxOptions } from 'element-plus/es/components/message-box/src/message-box.type';
@@ -117,6 +118,19 @@ const dynamic = ref(false);
 const tenantEnabled = ref(false);
 // 搜索菜单
 const searchMenuRef = ref<InstanceType<typeof SearchMenu>>();
+const navbarAvatarFallback = ref(false);
+const navbarAvatar = computed(() => (navbarAvatarFallback.value ? defaultAvatarUrl : resolveAvatarUrl(userStore.avatar)));
+
+const useDefaultAvatar = () => {
+  navbarAvatarFallback.value = true;
+};
+
+watch(
+  () => userStore.avatar,
+  () => {
+    navbarAvatarFallback.value = false;
+  }
+);
 
 const openSearchMenu = () => {
   searchMenuRef.value?.openSearch();

@@ -1,6 +1,6 @@
 <template>
   <div class="user-info-head" @click="editCropper()">
-    <img :src="options.img" title="点击上传头像" class="img-circle img-lg" />
+    <img :src="displayAvatar" title="点击上传头像" class="img-circle img-lg" @error="useDefaultAvatar" />
     <el-dialog v-model="open" :title="title" width="800px" append-to-body @opened="modalOpened" @close="closeDialog">
       <el-row>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
@@ -60,6 +60,7 @@ import 'vue-cropper/dist/index.css';
 import { VueCropper } from 'vue-cropper';
 import { uploadAvatar } from '@/api/system/user';
 import { useUserStore } from '@/store/modules/user';
+import { defaultAvatarUrl, resolveAvatarUrl } from '@/utils/avatar';
 import { UploadRawFile } from 'element-plus';
 
 interface Options {
@@ -82,9 +83,10 @@ const visible = ref(false);
 const title = ref('修改头像');
 
 const cropper = ref<any>({});
+const displayAvatar = computed(() => resolveAvatarUrl(options.img || userStore.avatar));
 //图片裁剪数据
 const options = reactive<Options>({
-  img: userStore.avatar,
+  img: resolveAvatarUrl(userStore.avatar),
   autoCrop: true,
   autoCropWidth: 200,
   autoCropHeight: 200,
@@ -137,9 +139,10 @@ const uploadImg = async () => {
     const formData = new FormData();
     formData.append('avatarfile', data, options.fileName);
     const res = await uploadAvatar(formData);
+    const avatarUrl = resolveAvatarUrl(res.data?.imgUrl || res.data?.ossId);
     open.value = false;
-    options.img = res.data.imgUrl;
-    userStore.setAvatar(options.img);
+    options.img = avatarUrl;
+    userStore.setAvatar(avatarUrl);
     proxy?.$modal.msgSuccess('修改成功');
     visible.value = false;
   });
@@ -150,9 +153,22 @@ const realTime = (data: any) => {
 };
 /** 关闭窗口 */
 const closeDialog = () => {
-  options.img = userStore.avatar;
+  options.img = resolveAvatarUrl(userStore.avatar);
   options.visible = false;
 };
+
+const useDefaultAvatar = () => {
+  options.img = defaultAvatarUrl;
+};
+
+watch(
+  () => userStore.avatar,
+  (avatar) => {
+    if (!open.value) {
+      options.img = resolveAvatarUrl(avatar);
+    }
+  }
+);
 </script>
 
 <style lang="scss" scoped>
