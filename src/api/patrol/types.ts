@@ -13,6 +13,19 @@ export type ModuleKey =
   | 'audit'
   | 'operations';
 
+export interface PageEnvelope<T> {
+  items: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}
+
+export interface PageParams {
+  page?: number;
+  pageSize?: number;
+}
+
 export interface PatrolMetric {
   label: string;
   value: string;

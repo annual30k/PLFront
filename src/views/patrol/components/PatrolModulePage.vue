@@ -1,16 +1,10 @@
 <template>
   <div class="p-2 patrol-page">
-    <el-card class="mb-[12px]" shadow="never">
-      <div class="page-head">
-        <div>
-          <div class="page-title">{{ pageTitle }}</div>
-          <div class="page-desc">{{ pageDesc }}</div>
-        </div>
-        <el-space>
-          <el-button type="primary" icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
-        </el-space>
-      </div>
-    </el-card>
+    <PatrolPageHeader :title="pageTitle" :description="pageDesc">
+      <template #actions>
+        <el-button type="primary" icon="Refresh" :loading="loading" @click="loadData">刷新</el-button>
+      </template>
+    </PatrolPageHeader>
 
     <template v-if="module === 'dashboard'">
       <el-row :gutter="12" class="mb-[12px]">
@@ -225,37 +219,15 @@
     </template>
 
     <template v-else-if="module === 'alerts'">
-      <el-card shadow="never">
-        <template #header>布控预警处置</template>
-        <el-table :data="alerts" border>
-          <el-table-column prop="occurredAt" label="预警时间" width="170" />
-          <el-table-column prop="alertType" label="类型" width="90" />
-          <el-table-column prop="targetName" label="布控对象" width="120" />
-          <el-table-column prop="officerName" label="触发警员" width="100" />
-          <el-table-column prop="deviceId" label="设备编号" width="130" />
-          <el-table-column prop="locationText" label="位置" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="confidence" label="置信度" width="90" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column label="操作" width="170" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" @click="handleAck(scope.row.alertId)">确认</el-button>
-              <el-button link type="success" @click="handleClose(scope.row.alertId)">关闭</el-button>
-              <el-button link type="info" @click="handleLoadAlertDispositions(scope.row.alertId)">流水</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-      <el-card shadow="never" class="mt-[12px]">
-        <template #header>预警处置流水</template>
-        <el-table :data="alertDispositions" border>
-          <el-table-column prop="occurredAt" label="处置时间" width="170" />
-          <el-table-column prop="actionType" label="动作" width="90" />
-          <el-table-column prop="actionResult" label="结果" width="100" />
-          <el-table-column prop="operatorName" label="操作人" width="110" />
-          <el-table-column prop="attachmentsCount" label="附件" width="80" />
-          <el-table-column prop="note" label="说明" min-width="180" show-overflow-tooltip />
-        </el-table>
-      </el-card>
+      <AlertDispositionPanel
+        :alerts="alerts"
+        :dispositions="alertDispositions"
+        :pager="alertPager"
+        :on-reload="loadData"
+        :on-ack="handleAck"
+        :on-close="handleClose"
+        :on-load-dispositions="handleLoadAlertDispositions"
+      />
     </template>
 
     <template v-else-if="module === 'devices'">
@@ -288,6 +260,12 @@
             </template>
           </el-table-column>
         </el-table>
+        <PatrolPagination
+          v-model:page="devicePager.page"
+          v-model:page-size="devicePager.pageSize"
+          :total="devicePager.total"
+          @change="loadData"
+        />
       </el-card>
       <el-card shadow="never" class="mb-[12px]">
         <template #header>
@@ -459,6 +437,12 @@
           <el-table-column prop="resultMessage" label="结果" min-width="220" show-overflow-tooltip />
           <el-table-column prop="ackAt" label="回执时间" width="170" />
         </el-table>
+        <PatrolPagination
+          v-model:page="deviceCommandPager.page"
+          v-model:page-size="deviceCommandPager.pageSize"
+          :total="deviceCommandPager.total"
+          @change="loadData"
+        />
       </el-card>
       <el-card shadow="never" class="mt-[12px]">
         <template #header>设备事件日志</template>
@@ -470,75 +454,31 @@
           <el-table-column prop="eventTitle" label="事件" width="150" />
           <el-table-column prop="eventDetail" label="详情" min-width="220" show-overflow-tooltip />
         </el-table>
+        <PatrolPagination
+          v-model:page="deviceEventPager.page"
+          v-model:page-size="deviceEventPager.pageSize"
+          :total="deviceEventPager.total"
+          @change="loadData"
+        />
       </el-card>
     </template>
 
     <template v-else-if="module === 'media'">
-      <el-card shadow="never">
-        <template #header>媒体证据库</template>
-        <el-table :data="mediaFiles" border>
-          <el-table-column prop="fileName" label="文件名" min-width="180" />
-          <el-table-column prop="mediaType" label="类型" width="90" />
-          <el-table-column prop="officerName" label="警员" width="100" />
-          <el-table-column prop="deviceId" label="设备" width="130" />
-          <el-table-column prop="bizRef" label="关联事件" width="150" />
-          <el-table-column prop="sizeText" label="大小" width="100" />
-          <el-table-column prop="verifyStatus" label="校验" width="110" />
-          <el-table-column prop="sha256" label="SHA-256" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="storagePath" label="存储位置" min-width="160" />
-          <el-table-column prop="capturedAt" label="采集时间" width="170" />
-          <el-table-column label="操作" width="210" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" @click="handlePreviewMedia(scope.row)">预览</el-button>
-              <el-button link type="primary" @click="handleDownloadMedia(scope.row)">下载</el-button>
-              <el-button link type="primary" @click="handleVerifyMedia(scope.row.fileId)">校验</el-button>
-              <el-button link type="danger" @click="handleDeleteMedia(scope.row.fileId)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-      <el-card shadow="never" class="mt-[12px]">
-        <template #header>
-          <div class="card-toolbar">
-            <span>分片上传任务</span>
-            <el-button size="small" @click="handleCleanUploadTasks">清理过期任务</el-button>
-          </div>
-        </template>
-        <el-table :data="mediaUploadTasks" border>
-          <el-table-column prop="taskId" label="任务ID" width="170" show-overflow-tooltip />
-          <el-table-column prop="fileName" label="文件名" min-width="170" show-overflow-tooltip />
-          <el-table-column prop="mediaType" label="类型" width="90" />
-          <el-table-column prop="officerName" label="警员" width="100" />
-          <el-table-column prop="deviceId" label="设备" width="130" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column label="进度" width="160">
-            <template #default="scope">
-              <el-progress :percentage="Math.round((scope.row.progress || 0) * 100)" :show-text="true" />
-            </template>
-          </el-table-column>
-          <el-table-column label="分片" width="100">
-            <template #default="scope">{{ scope.row.uploadedChunks }}/{{ scope.row.totalChunks }}</template>
-          </el-table-column>
-          <el-table-column label="已传序号" min-width="160" show-overflow-tooltip>
-            <template #default="scope">{{ (scope.row.uploadedChunkIndexes || []).join(', ') || '-' }}</template>
-          </el-table-column>
-          <el-table-column prop="fileId" label="媒体ID" width="150" show-overflow-tooltip />
-          <el-table-column prop="errorMessage" label="失败原因" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="createdAt" label="创建时间" width="170" />
-          <el-table-column prop="completedAt" label="完成时间" width="170" />
-        </el-table>
-      </el-card>
-      <el-dialog v-model="mediaPreview.visible" :title="mediaPreview.title" width="720px" @closed="clearMediaPreview">
-        <div class="media-preview">
-          <img v-if="mediaPreview.kind === 'PHOTO'" :src="mediaPreview.url" alt="media preview" />
-          <audio v-else-if="mediaPreview.kind === 'AUDIO'" :src="mediaPreview.url" controls />
-          <video v-else :src="mediaPreview.url" controls />
-          <el-descriptions :column="1" border>
-            <el-descriptions-item label="SHA-256">{{ mediaPreview.sha256 || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="水印令牌">{{ mediaPreview.watermarkToken || '-' }}</el-descriptions-item>
-          </el-descriptions>
-        </div>
-      </el-dialog>
+      <MediaEvidencePanel
+        :files="mediaFiles"
+        :upload-tasks="mediaUploadTasks"
+        :pager="mediaPager"
+        :upload-task-pager="mediaUploadTaskPager"
+        :preview="mediaPreview"
+        :section="mediaSection"
+        :on-reload="loadData"
+        :on-preview="handlePreviewMedia"
+        :on-download="handleDownloadMedia"
+        :on-verify="handleVerifyMedia"
+        :on-delete="handleDeleteMedia"
+        :on-clean-upload-tasks="handleCleanUploadTasks"
+        :on-clear-preview="clearMediaPreview"
+      />
     </template>
 
     <template v-else-if="module === 'reports'">
@@ -570,6 +510,12 @@
                 </template>
               </el-table-column>
             </el-table>
+            <PatrolPagination
+              v-model:page="dailyReportPager.page"
+              v-model:page-size="dailyReportPager.pageSize"
+              :total="dailyReportPager.total"
+              @change="loadData"
+            />
           </el-card>
         </el-col>
         <el-col :xs="24" :lg="9">
@@ -620,207 +566,53 @@
     </template>
 
     <template v-else-if="module === 'sos'">
-      <el-card shadow="never">
-        <template #header>SOS 实时求助</template>
-        <el-table :data="sosEvents" border>
-          <el-table-column prop="createdAt" label="上报时间" width="170" />
-          <el-table-column prop="officerName" label="警员" width="100" />
-          <el-table-column prop="badgeNo" label="警号" width="100" />
-          <el-table-column prop="deptName" label="部门" min-width="140" />
-          <el-table-column prop="locationText" label="位置" min-width="180" />
-          <el-table-column prop="status" label="状态" width="100" />
-          <el-table-column prop="disposition" label="处置" width="130" />
-          <el-table-column prop="backupEtaMinutes" label="增援 ETA" width="100" />
-          <el-table-column label="操作" width="260" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" @click="handleLoadSosTimeline(scope.row.sosId)">流水</el-button>
-              <el-button link type="primary" @click="handleAssignSosBackup(scope.row.sosId)">增援</el-button>
-              <el-button link type="primary" @click="handleNotifySos(scope.row.sosId)">通知</el-button>
-              <el-button link type="primary" @click="handleAddSosRecording(scope.row.sosId)">录音</el-button>
-              <el-button link type="primary" @click="handleAddSosNote(scope.row.sosId)">备注</el-button>
-              <el-button link type="success" @click="handleCloseSos(scope.row.sosId)">关闭</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-      <el-card shadow="never" class="mt-[12px]">
-        <template #header>处置时间线</template>
-        <el-table :data="sosTimeline" border>
-          <el-table-column prop="occurredAt" label="时间" width="170" />
-          <el-table-column prop="actionType" label="动作" width="130" />
-          <el-table-column prop="actionResult" label="结果" width="110" />
-          <el-table-column prop="operatorName" label="操作人" width="100" />
-          <el-table-column prop="contactName" label="联系人" width="100" />
-          <el-table-column prop="contactPhone" label="电话" width="130" />
-          <el-table-column prop="attachmentFileName" label="附件" width="150" show-overflow-tooltip />
-          <el-table-column prop="backupEtaMinutes" label="ETA" width="80" />
-          <el-table-column prop="note" label="说明" min-width="200" show-overflow-tooltip />
-        </el-table>
-      </el-card>
+      <SosDispositionPanel
+        :events="sosEvents"
+        :timeline="sosTimeline"
+        :pager="sosPager"
+        :on-reload="loadData"
+        :on-load-timeline="handleLoadSosTimeline"
+        :on-assign-backup="handleAssignSosBackup"
+        :on-notify="handleNotifySos"
+        :on-add-recording="handleAddSosRecording"
+        :on-add-note="handleAddSosNote"
+        :on-close="handleCloseSos"
+      />
     </template>
 
     <template v-else-if="module === 'control'">
-      <el-row :gutter="12">
-        <el-col :xs="24" :lg="12">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-toolbar">
-                <span>人员布控</span>
-                <el-space>
-                  <el-upload :show-file-list="false" accept=".xlsx,.xls" :http-request="handleImportControlPersons">
-                    <el-button size="small" :loading="controlImportLoading">导入</el-button>
-                  </el-upload>
-                  <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlPerson">新增人员</el-button>
-                </el-space>
-              </div>
-            </template>
-            <el-table :data="controlPersons" border>
-              <el-table-column prop="name" label="姓名" width="100" />
-              <el-table-column prop="category" label="类别" width="110" />
-              <el-table-column prop="riskLevel" label="风险" width="90" />
-              <el-table-column prop="status" label="状态" width="100" />
-              <el-table-column label="人脸底库" width="130">
-                <template #default="scope">
-                  <el-space v-if="scope.row.hasFaceImage" :size="6">
-                    <el-image
-                      class="face-thumb"
-                      :src="assetUrl(scope.row.faceImageUrl)"
-                      fit="cover"
-                      :preview-src-list="[assetUrl(scope.row.faceImageUrl)]"
-                    />
-                    <el-tag size="small" type="success">已入库</el-tag>
-                  </el-space>
-                  <el-tag v-else size="small" type="info">未上传</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="source" label="来源" />
-              <el-table-column label="操作" width="150" fixed="right">
-                <template #default="scope">
-                  <el-button link :type="scope.row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleControlPerson(scope.row)">
-                    {{ scope.row.status === 'ENABLED' ? '停用' : '启用' }}
-                  </el-button>
-                  <el-upload
-                    class="inline-upload"
-                    :show-file-list="false"
-                    accept="image/*"
-                    :http-request="(options: any) => handleUploadControlPersonFace(scope.row, options)"
-                  >
-                    <el-button link type="primary" :loading="faceUploadLoading[scope.row.controlId]">
-                      {{ scope.row.hasFaceImage ? '换照片' : '传照片' }}
-                    </el-button>
-                  </el-upload>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :lg="12">
-          <el-card shadow="never">
-            <template #header>
-              <div class="card-toolbar">
-                <span>车辆布控</span>
-                <el-space>
-                  <el-upload :show-file-list="false" accept=".xlsx,.xls" :http-request="handleImportControlVehicles">
-                    <el-button size="small" :loading="controlImportLoading">导入</el-button>
-                  </el-upload>
-                  <el-button type="primary" size="small" icon="Plus" @click="handleCreateControlVehicle">新增车辆</el-button>
-                </el-space>
-              </div>
-            </template>
-            <el-table :data="controlVehicles" border>
-              <el-table-column prop="plateNo" label="车牌" width="110" />
-              <el-table-column prop="vehicleDesc" label="车辆" />
-              <el-table-column prop="riskLevel" label="风险" width="90" />
-              <el-table-column prop="status" label="状态" width="100" />
-              <el-table-column prop="source" label="来源" />
-              <el-table-column label="操作" width="90" fixed="right">
-                <template #default="scope">
-                  <el-button link :type="scope.row.status === 'ENABLED' ? 'warning' : 'success'" @click="handleToggleControlVehicle(scope.row)">
-                    {{ scope.row.status === 'ENABLED' ? '停用' : '启用' }}
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-      </el-row>
-      <el-alert
-        v-if="controlImportResult"
-        class="mt-[12px]"
-        :type="controlImportResult.failed > 0 ? 'warning' : 'success'"
-        :title="controlImportResult.message"
-        show-icon
-        :closable="false"
-      >
-        <template v-if="controlImportResult.errors?.length" #default>
-          <div v-for="item in controlImportResult.errors.slice(0, 5)" :key="`${item.rowNo}-${item.reason}`">
-            第 {{ item.rowNo }} 行：{{ item.reason }}
-          </div>
-        </template>
-      </el-alert>
+      <ControlManagementPanel
+        :persons="controlPersons"
+        :vehicles="controlVehicles"
+        :person-pager="controlPersonPager"
+        :vehicle-pager="controlVehiclePager"
+        :import-result="controlImportResult"
+        :import-loading="controlImportLoading"
+        :section="controlSection"
+        :face-upload-loading="faceUploadLoading"
+        :asset-url="assetUrl"
+        :on-reload="loadData"
+        :on-import-persons="handleImportControlPersons"
+        :on-import-vehicles="handleImportControlVehicles"
+        :on-create-person="handleCreateControlPerson"
+        :on-create-vehicle="handleCreateControlVehicle"
+        :on-toggle-person="handleToggleControlPerson"
+        :on-toggle-vehicle="handleToggleControlVehicle"
+        :on-upload-person-face="handleUploadControlPersonFace"
+      />
     </template>
 
     <template v-else-if="module === 'messages'">
-      <el-card shadow="never" class="mb-[12px]">
-        <template #header>发送指挥消息</template>
-        <el-form :inline="true" :model="messageForm" class="message-form">
-          <el-form-item label="目标类型">
-            <el-select v-model="messageForm.targetType" style="width: 120px">
-              <el-option label="警员" value="SINGLE" />
-              <el-option label="设备" value="DEVICE" />
-              <el-option label="组织" value="ORG" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="目标ID">
-            <el-input v-model="messageForm.targetId" style="width: 150px" />
-          </el-form-item>
-          <el-form-item label="标题">
-            <el-input v-model="messageForm.title" style="width: 160px" />
-          </el-form-item>
-          <el-form-item label="内容">
-            <el-input v-model="messageForm.content" style="width: 360px" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" icon="Promotion" @click="handleSendMessage">发送</el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
-      <el-card shadow="never">
-        <template #header>消息流水</template>
-        <el-table :data="messages" border>
-          <el-table-column prop="sentAt" label="发送时间" width="170" />
-          <el-table-column prop="title" label="标题" width="130" />
-          <el-table-column prop="content" label="内容" min-width="240" show-overflow-tooltip />
-          <el-table-column prop="targetType" label="目标类型" width="100" />
-          <el-table-column prop="targetName" label="目标" width="130" />
-          <el-table-column prop="channel" label="通道" width="80" />
-          <el-table-column prop="status" label="状态" width="90" />
-          <el-table-column label="已投递" width="90">
-            <template #default="scope">{{ scope.row.deliveredCount }}/{{ scope.row.totalCount }}</template>
-          </el-table-column>
-          <el-table-column label="已读" width="90">
-            <template #default="scope">{{ scope.row.readCount }}/{{ scope.row.totalCount }}</template>
-          </el-table-column>
-          <el-table-column prop="pendingCount" label="待补偿" width="90" />
-          <el-table-column label="操作" width="90" fixed="right">
-            <template #default="scope">
-              <el-button link type="primary" @click="handleLoadMessageReceipts(scope.row.messageId)">明细</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-      <el-card shadow="never" class="mt-[12px]">
-        <template #header>投递明细</template>
-        <el-table :data="messageReceipts" border>
-          <el-table-column prop="recipientId" label="接收人" width="120" />
-          <el-table-column prop="recipientName" label="姓名" width="110" />
-          <el-table-column prop="deviceId" label="设备" width="130" />
-          <el-table-column prop="deliveryStatus" label="状态" width="110" />
-          <el-table-column prop="deliveredAt" label="投递时间" width="170" />
-          <el-table-column prop="readAt" label="已读时间" width="170" />
-          <el-table-column prop="lastPullAt" label="最近拉取" width="170" />
-        </el-table>
-      </el-card>
+      <CommandMessagePanel
+        :form="messageForm"
+        :messages="messages"
+        :receipts="messageReceipts"
+        :pager="messagePager"
+        :section="messageSection"
+        :on-reload="loadData"
+        :on-send="handleSendMessage"
+        :on-load-receipts="handleLoadMessageReceipts"
+      />
     </template>
 
     <template v-else-if="module === 'statistics'">
@@ -868,223 +660,58 @@
     </template>
 
     <template v-else-if="module === 'audit'">
-      <el-card shadow="never">
-        <template #header>操作审计</template>
-        <el-table :data="auditLogs" border>
-          <el-table-column prop="occurredAt" label="时间" width="170" />
-          <el-table-column prop="logType" label="类型" width="100" />
-          <el-table-column prop="operatorName" label="操作人" width="110" />
-          <el-table-column prop="action" label="动作" min-width="160" />
-          <el-table-column prop="resource" label="资源" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="result" label="结果" width="90" />
-          <el-table-column prop="ipAddress" label="IP" width="120" />
-          <el-table-column prop="traceId" label="Trace" min-width="220" show-overflow-tooltip />
-        </el-table>
-      </el-card>
+      <AuditLogPanel :logs="auditLogs" :pager="auditPager" :on-reload="loadData" />
     </template>
 
     <template v-else>
-      <el-row :gutter="12" class="mb-[12px]">
-        <el-col :xs="24" :lg="9">
-          <el-card shadow="never">
-            <template #header>新增 App 版本</template>
-            <el-form :model="versionForm" label-width="86px">
-              <el-form-item label="版本号" required>
-                <el-input-number v-model="versionForm.versionCode" :min="1" :step="1" />
-              </el-form-item>
-              <el-form-item label="版本名称" required>
-                <el-input v-model="versionForm.versionName" placeholder="例如 1.3.0" clearable />
-              </el-form-item>
-              <el-form-item label="强制更新">
-                <el-switch v-model="versionForm.forceUpdate" />
-              </el-form-item>
-              <el-form-item label="APK" required>
-                <el-upload :show-file-list="false" accept=".apk" :http-request="handleUploadVersionPackage">
-                  <el-button :loading="versionUploadLoading" icon="UploadFilled">上传安装包</el-button>
-                </el-upload>
-                <div v-if="versionForm.fileId" class="text-xs text-green-600 mt-1">安装包已上传，校验信息已自动生成</div>
-                <div v-else class="text-xs text-gray-400 mt-1">请先上传 APK，下载地址和 SHA-256 将自动回填</div>
-              </el-form-item>
-              <el-form-item label="下载地址" required>
-                <el-input v-model="versionForm.downloadUrl" disabled placeholder="上传 APK 后自动生成" />
-              </el-form-item>
-              <el-form-item label="SHA-256" required>
-                <el-input v-model="versionForm.sha256" disabled placeholder="上传 APK 后自动计算" />
-              </el-form-item>
-              <el-form-item label="更新日志" required>
-                <el-input v-model="versionForm.changelog" type="textarea" :rows="4" placeholder="请输入本次版本变更内容" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" icon="Upload" :disabled="!canPublishVersion" @click="handleCreateVersion">发布版本</el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :lg="15">
-          <el-card shadow="never">
-            <template #header>App 版本包</template>
-            <el-table :data="appVersions" border>
-              <el-table-column prop="versionCode" label="编码" width="80" />
-              <el-table-column prop="versionName" label="版本" width="110" />
-              <el-table-column prop="status" label="状态" width="110" />
-              <el-table-column label="强制" width="80">
-                <template #default="scope">{{ scope.row.forceUpdate ? '是' : '否' }}</template>
-              </el-table-column>
-              <el-table-column prop="downloadUrl" label="下载地址" min-width="240" show-overflow-tooltip />
-              <el-table-column prop="publishedAt" label="发布时间" width="170" />
-              <el-table-column label="操作" width="110" fixed="right">
-                <template #default="scope">
-                  <el-button link :type="scope.row.status === 'PUBLISHED' ? 'warning' : 'success'" @click="handleToggleVersion(scope.row)">
-                    {{ scope.row.status === 'PUBLISHED' ? '停用' : '发布' }}
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-      </el-row>
-      <el-row :gutter="12" class="mb-[12px]">
-        <el-col :xs="24" :lg="9">
-          <el-card shadow="never">
-            <template #header>新增设备固件</template>
-            <el-form :model="firmwareForm" label-width="96px">
-              <el-form-item label="设备类型" required>
-                <el-select v-model="firmwareForm.deviceType" class="w-full">
-                  <el-option label="眼镜" value="GLASSES" />
-                  <el-option label="耳机" value="HEADSET" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="芯片平台" required>
-                <el-select v-model="firmwareForm.chipset" class="w-full">
-                  <el-option label="炬芯 ACTS" value="ACTS" />
-                  <el-option label="杰理 JL" value="JL" />
-                  <el-option label="通用" value="" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="厂商">
-                <el-input v-model="firmwareForm.vendor" placeholder="UTE / JL / ACTIONS" clearable />
-              </el-form-item>
-              <el-form-item label="设备型号">
-                <el-input v-model="firmwareForm.deviceModel" placeholder="为空表示不限型号" clearable />
-              </el-form-item>
-              <el-form-item label="硬件版本">
-                <el-input v-model="firmwareForm.hardwareVersion" placeholder="为空表示不限硬件版本" clearable />
-              </el-form-item>
-              <el-form-item label="排序版本号" required>
-                <el-input-number v-model="firmwareForm.versionCode" :min="1" :step="1" />
-              </el-form-item>
-              <el-form-item label="版本名称" required>
-                <el-input v-model="firmwareForm.versionName" placeholder="例如 AT338V000110" clearable />
-              </el-form-item>
-              <el-form-item label="兼容范围">
-                <div class="flex gap-2">
-                  <el-input v-model="firmwareForm.minCurrentVersion" placeholder="最低当前版本" clearable />
-                  <el-input v-model="firmwareForm.maxCurrentVersion" placeholder="最高当前版本" clearable />
-                </div>
-              </el-form-item>
-              <el-form-item label="强制升级">
-                <el-switch v-model="firmwareForm.forceUpdate" />
-              </el-form-item>
-              <el-form-item label="固件包" required>
-                <el-upload :show-file-list="false" accept=".bin,.zip,.ufw" :http-request="handleUploadFirmwarePackage">
-                  <el-button :loading="firmwareUploadLoading" icon="UploadFilled">上传固件包</el-button>
-                </el-upload>
-                <div v-if="firmwareForm.fileId" class="text-xs text-green-600 mt-1">固件包已上传，格式：{{ firmwareForm.packageFormat }}</div>
-                <div v-else class="text-xs text-gray-400 mt-1">支持炬芯 bin/zip 与杰理 ufw，上传后自动回填校验信息</div>
-              </el-form-item>
-              <el-form-item label="SHA-256" required>
-                <el-input v-model="firmwareForm.sha256" disabled placeholder="上传固件包后自动计算" />
-              </el-form-item>
-              <el-form-item label="更新日志" required>
-                <el-input v-model="firmwareForm.changelog" type="textarea" :rows="4" />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" icon="Upload" :disabled="!canPublishFirmware" @click="handleCreateFirmware">发布固件</el-button>
-              </el-form-item>
-            </el-form>
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :lg="15">
-          <el-card shadow="never">
-            <template #header>设备固件包</template>
-            <el-table :data="firmwareVersions" border>
-              <el-table-column prop="versionCode" label="编码" width="80" />
-              <el-table-column prop="versionName" label="版本" width="150" />
-              <el-table-column prop="deviceType" label="设备" width="90" />
-              <el-table-column prop="chipset" label="芯片" width="90" />
-              <el-table-column prop="packageFormat" label="格式" width="80" />
-              <el-table-column prop="status" label="状态" width="110" />
-              <el-table-column label="强制" width="80">
-                <template #default="scope">{{ scope.row.forceUpdate ? '是' : '否' }}</template>
-              </el-table-column>
-              <el-table-column prop="downloadUrl" label="下载地址" min-width="220" show-overflow-tooltip />
-              <el-table-column prop="publishedAt" label="发布时间" width="170" />
-              <el-table-column label="操作" width="110" fixed="right">
-                <template #default="scope">
-                  <el-button link :type="scope.row.status === 'PUBLISHED' ? 'warning' : 'success'" @click="handleToggleFirmware(scope.row)">
-                    {{ scope.row.status === 'PUBLISHED' ? '停用' : '发布' }}
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </el-card>
-        </el-col>
-      </el-row>
-      <el-card shadow="never" class="mb-[12px]">
-        <template #header>设备固件升级记录</template>
-        <el-table :data="firmwareUpgradeTasks" border>
-          <el-table-column prop="taskId" label="任务ID" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="deviceId" label="设备ID" min-width="150" show-overflow-tooltip />
-          <el-table-column prop="fromVersion" label="原版本" width="140" />
-          <el-table-column prop="toVersion" label="目标版本" width="140" />
-          <el-table-column prop="status" label="状态" width="120" />
-          <el-table-column label="进度" width="180">
-            <template #default="scope">
-              <el-progress :percentage="Math.round((scope.row.progress || 0) * 100)" />
-            </template>
-          </el-table-column>
-          <el-table-column prop="errorMessage" label="失败原因" min-width="180" show-overflow-tooltip />
-          <el-table-column prop="startedAt" label="开始时间" width="170" />
-          <el-table-column prop="finishedAt" label="完成时间" width="170" />
-        </el-table>
-      </el-card>
-      <el-card shadow="never">
-        <template #header>运维能力</template>
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="数据库">MySQL 8 / 达梦 DM8 / 人大金仓 KingbaseES V8</el-descriptions-item>
-          <el-descriptions-item label="缓存">Redis + Redisson，支持单机、哨兵、集群</el-descriptions-item>
-          <el-descriptions-item label="对象存储">MinIO，证据文件预签名访问</el-descriptions-item>
-          <el-descriptions-item label="部署">Docker Compose 起步，生产支持多实例</el-descriptions-item>
-          <el-descriptions-item label="流媒体">独立媒体节点，业务后端只管理会话和鉴权</el-descriptions-item>
-          <el-descriptions-item label="第三方">人脸比对、车牌 OCR、110 接处警接口预留</el-descriptions-item>
-        </el-descriptions>
-      </el-card>
+      <AppVersionSection
+        v-if="operationSection === 'all' || operationSection === 'app-versions'"
+        :form="versionForm"
+        :versions="appVersions"
+        :pager="appVersionPager"
+        :upload-loading="versionUploadLoading"
+        :can-publish="canPublishVersion"
+        :on-reload="loadData"
+        :on-upload-package="handleUploadVersionPackage"
+        :on-create="handleCreateVersion"
+        :on-toggle="handleToggleVersion"
+      />
+      <FirmwareVersionSection
+        v-if="operationSection === 'all' || operationSection === 'firmware-versions'"
+        :form="firmwareForm"
+        :versions="firmwareVersions"
+        :pager="firmwareVersionPager"
+        :upload-loading="firmwareUploadLoading"
+        :can-publish="canPublishFirmware"
+        :on-reload="loadData"
+        :on-upload-package="handleUploadFirmwarePackage"
+        :on-create="handleCreateFirmware"
+        :on-toggle="handleToggleFirmware"
+      />
+      <FirmwareUpgradeTaskSection
+        v-if="operationSection === 'all' || operationSection === 'firmware-upgrade-tasks'"
+        :tasks="firmwareUpgradeTasks"
+        :pager="firmwareTaskPager"
+        :on-reload="loadData"
+      />
+      <OperationsCapabilityCard v-if="operationSection === 'all' || operationSection === 'capabilities'" />
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import {
-  addPatrolSosNote,
-  addPatrolSosRecording,
-  acknowledgeAlert,
   applyDeviceSettings,
-  assignPatrolSosBackup,
-  cleanPatrolMediaUploadTasks,
   closeDispatchSession,
   closeIntercomSession,
   configureDeviceWifi,
   listAlertDispositions,
-  closePatrolSos,
-  closeAlert,
   createAppVersion,
   createControlPerson,
   createControlVehicle,
   createDispatchSession,
   createFirmwareVersion,
   createIntercomSession,
-  deletePatrolMedia,
-  downloadPatrolMedia,
   getPatrolDashboard,
   getCurrentPatrolArea,
   getStatisticsOverview,
@@ -1115,8 +742,6 @@ import {
   listPatrolSosTimeline,
   listSystemAuditLogs,
   markDeviceMediaSyncCompleted,
-  notifyPatrolSosContact,
-  sendPatrolMessage,
   sendDeviceCommand,
   sendIntercomSignal,
   savePatrolArea,
@@ -1130,9 +755,27 @@ import {
   updatePatrolDailyReportStatus,
   uploadControlPersonFaceImage,
   uploadAppVersionPackage,
-  uploadFirmwarePackage,
-  verifyPatrolMedia
+  uploadFirmwarePackage
 } from '@/api/patrol';
+import AlertDispositionPanel from '@/views/patrol/alerts/components/AlertDispositionPanel.vue';
+import { useAlertDispositionActions } from '@/views/patrol/alerts/composables/useAlertDispositionActions';
+import AuditLogPanel from '@/views/patrol/audit/components/AuditLogPanel.vue';
+import PatrolPageHeader from '@/views/patrol/components/common/PatrolPageHeader.vue';
+import PatrolPagination from '@/views/patrol/components/common/PatrolPagination.vue';
+import ControlManagementPanel from '@/views/patrol/control/components/ControlManagementPanel.vue';
+import MediaEvidencePanel from '@/views/patrol/media/components/MediaEvidencePanel.vue';
+import { useMediaEvidenceActions } from '@/views/patrol/media/composables/useMediaEvidenceActions';
+import CommandMessagePanel from '@/views/patrol/messages/components/CommandMessagePanel.vue';
+import { useCommandMessageActions } from '@/views/patrol/messages/composables/useCommandMessageActions';
+import AppVersionSection from '@/views/patrol/operations/components/AppVersionSection.vue';
+import FirmwareUpgradeTaskSection from '@/views/patrol/operations/components/FirmwareUpgradeTaskSection.vue';
+import FirmwareVersionSection from '@/views/patrol/operations/components/FirmwareVersionSection.vue';
+import OperationsCapabilityCard from '@/views/patrol/operations/components/OperationsCapabilityCard.vue';
+import SosDispositionPanel from '@/views/patrol/sos/components/SosDispositionPanel.vue';
+import { useSosDispositionActions } from '@/views/patrol/sos/composables/useSosDispositionActions';
+import { createPatrolPagination, readPageItems, toPageParams } from '@/views/patrol/composables/usePatrolPagination';
+import { patrolModuleMeta } from '@/views/patrol/config/patrolModuleMeta';
+import { patrolRealtimeRefreshMap } from '@/views/patrol/config/patrolRealtimeRefreshMap';
 import {
   AppVersion,
   ControlPerson,
@@ -1172,7 +815,9 @@ import smartGlassesImage from '@/assets/patrol/devices/smart-glasses-image2.png'
 import { loadAMap } from '@/utils/amap';
 import { PATROL_REALTIME_EVENT, PatrolRealtimeEvent } from '@/utils/sse';
 
-const props = defineProps<{ module: ModuleKey }>();
+const props = withDefaults(defineProps<{ module: ModuleKey; section?: string }>(), {
+  section: ''
+});
 
 const loading = ref(false);
 const wallLayout = ref(8);
@@ -1222,6 +867,22 @@ const versionUploadLoading = ref(false);
 const firmwareVersions = ref<FirmwareVersion[]>([]);
 const firmwareUpgradeTasks = ref<FirmwareUpgradeTask[]>([]);
 const firmwareUploadLoading = ref(false);
+const alertPager = reactive(createPatrolPagination(20));
+const devicePager = reactive(createPatrolPagination(20));
+const deviceConfigPager = reactive(createPatrolPagination(20));
+const deviceCommandPager = reactive(createPatrolPagination(20));
+const deviceEventPager = reactive(createPatrolPagination(20));
+const mediaPager = reactive(createPatrolPagination(20));
+const mediaUploadTaskPager = reactive(createPatrolPagination(20));
+const dailyReportPager = reactive(createPatrolPagination(20));
+const sosPager = reactive(createPatrolPagination(20));
+const controlPersonPager = reactive(createPatrolPagination(20));
+const controlVehiclePager = reactive(createPatrolPagination(20));
+const messagePager = reactive(createPatrolPagination(20));
+const auditPager = reactive(createPatrolPagination(20));
+const appVersionPager = reactive(createPatrolPagination(20));
+const firmwareVersionPager = reactive(createPatrolPagination(20));
+const firmwareTaskPager = reactive(createPatrolPagination(20));
 const deviceWifiForm = reactive<DeviceWifiState>({
   enabled: false,
   ssid: '',
@@ -1309,24 +970,15 @@ const streamQualityOptions = [
   { label: '自动', value: 'AUTO' }
 ];
 
-const pageMeta: Record<ModuleKey, { title: string; desc: string }> = {
-  dashboard: { title: '指挥工作台', desc: '聚合在线警力、设备、视频会话、预警、SOS 与媒体上传状态。' },
-  dispatch: { title: '指挥调度', desc: '视频墙保留，实时对讲走 WebRTC/VoIP，App 使用系统蓝牙 Headset/SCO/A2DP 作为麦克风和扬声器。' },
-  map: { title: '警力一张图', desc: '基于高德地图接入实时位置，设备最新点按 3 秒周期刷新。' },
-  alerts: { title: '布控预警', desc: '接收第三方人脸比对和车牌 OCR 结果，形成预警处置闭环。' },
-  devices: { title: '设备管理', desc: '管理智能执法耳机台账、绑定关系、在线状态、电量、固件和指令。' },
-  media: { title: '媒体证据', desc: '管理图片、视频、音频、SOS 录音和处置附件，后续接入 MinIO。' },
-  reports: { title: '日报管理', desc: '查看边缘小脑提交的执勤日报、媒体选择、结构化上下文和人工复核状态。' },
-  sos: { title: 'SOS 求助', desc: '实时接收一键求助、定位、录音状态、增援 ETA 和处置结果。' },
-  control: { title: '人员车辆布控', desc: '维护人员/车辆布控任务，重点人员人脸底库自动同步到边缘小脑。' },
-  messages: { title: '消息通知', desc: '向警员、设备或组织发送指挥消息，并查看消息送达状态。' },
-  statistics: { title: '统计分析', desc: '基于设备、预警、SOS、媒体和指令流水沉淀运行指标。' },
-  audit: { title: '审计日志', desc: '记录关键指挥操作、业务资源、操作人和链路追踪信息。' },
-  operations: { title: '运维监控', desc: '沉淀数据库、Redis、MinIO、流媒体和第三方接口的运行能力边界。' }
-};
-
-const pageTitle = computed(() => pageMeta[props.module].title);
-const pageDesc = computed(() => pageMeta[props.module].desc);
+const pageTitle = computed(() => patrolModuleMeta[props.module].title);
+const pageDesc = computed(() => patrolModuleMeta[props.module].desc);
+const controlSection = computed(() => (props.section === 'persons' || props.section === 'vehicles' ? props.section : 'all'));
+const mediaSection = computed(() => (props.section === 'evidence' || props.section === 'upload-tasks' ? props.section : 'all'));
+const messageSection = computed(() => (props.section === 'send' || props.section === 'history' ? props.section : 'all'));
+const operationSection = computed(() => {
+  const allowedSections = ['app-versions', 'firmware-versions', 'firmware-upgrade-tasks', 'capabilities'];
+  return allowedSections.includes(props.section || '') ? props.section : 'all';
+});
 const streamVideoUrl = computed(() => activeDispatchSession.value?.relayUrl || '');
 const streamSessionText = computed(() => {
   if (!activeDispatchSession.value) {
@@ -1382,30 +1034,8 @@ const assetUrl = (url?: string) => {
   return `${baseApi}${url.startsWith('/') ? url : `/${url}`}`;
 };
 
-const realtimeRefreshModules: Record<string, ModuleKey[]> = {
-  DEVICE_STATUS: ['dashboard', 'devices', 'statistics'],
-  DEVICE_LOCATION: ['dashboard', 'map', 'devices', 'statistics'],
-  DEVICE_EVENT: ['dashboard', 'devices', 'dispatch', 'media', 'audit'],
-  DEVICE_COMMAND: ['dashboard', 'devices', 'dispatch', 'statistics', 'audit'],
-  ALERT_UPDATED: ['dashboard', 'alerts', 'statistics', 'audit'],
-  SOS_ACTIVE: ['dashboard', 'sos', 'statistics'],
-  SOS_CANCELLED: ['dashboard', 'sos', 'statistics', 'audit'],
-  SOS_CLOSED: ['dashboard', 'sos', 'statistics', 'audit'],
-  MESSAGE_SENT: ['dashboard', 'messages', 'audit'],
-  MESSAGE_READ: ['messages'],
-  MEDIA_UPLOADED: ['dashboard', 'media', 'statistics', 'audit'],
-  MEDIA_UPLOAD_PROGRESS: ['media'],
-  MEDIA_UPLOAD_DONE: ['dashboard', 'media', 'statistics', 'audit'],
-  MEDIA_UPLOAD_CANCELLED: ['media', 'audit'],
-  MEDIA_UPLOAD_CLEANED: ['media', 'audit'],
-  MEDIA_DELETED: ['dashboard', 'media', 'statistics', 'audit'],
-  MEDIA_VERIFIED: ['media', 'audit'],
-  DAILY_REPORT_UPDATED: ['dashboard', 'reports', 'audit'],
-  PATROL_AREA_UPDATED: ['map', 'dashboard']
-};
-
 const shouldRefreshForRealtime = (event: PatrolRealtimeEvent) => {
-  const modules = realtimeRefreshModules[event.type] || [];
+  const modules = patrolRealtimeRefreshMap[event.type] || [];
   return modules.includes(props.module) || event.module === props.module;
 };
 
@@ -1441,22 +1071,22 @@ const loadData = async () => {
       await nextTick();
       await renderOfficerMap();
     } else if (props.module === 'alerts') {
-      alerts.value = (await listPatrolAlerts()).data;
+      alerts.value = readPageItems((await listPatrolAlerts(toPageParams(alertPager))).data, alertPager);
       if (alerts.value.length > 0) {
         alertDispositions.value = (await listAlertDispositions(alerts.value[0].alertId)).data;
       }
     } else if (props.module === 'devices') {
       const [devicesRes, configsRes, commandsRes, eventsRes, channelsRes] = await Promise.all([
-        listPatrolDevices(),
-        listDeviceConfigs(),
-        listDeviceCommands(),
-        listDeviceEvents(),
+        listPatrolDevices(toPageParams(devicePager)),
+        listDeviceConfigs(toPageParams(deviceConfigPager)),
+        listDeviceCommands(toPageParams(deviceCommandPager)),
+        listDeviceEvents(toPageParams(deviceEventPager)),
         listDispatchChannels()
       ]);
-      devices.value = devicesRes.data;
-      deviceConfigs.value = configsRes.data;
-      deviceCommands.value = commandsRes.data;
-      deviceEvents.value = eventsRes.data;
+      devices.value = readPageItems(devicesRes.data, devicePager);
+      deviceConfigs.value = readPageItems(configsRes.data, deviceConfigPager);
+      deviceCommands.value = readPageItems(commandsRes.data, deviceCommandPager);
+      deviceEvents.value = readPageItems(eventsRes.data, deviceEventPager);
       channels.value = channelsRes.data;
       const selected = selectedDeviceConfig.value
         ? deviceConfigs.value.find((item) => item.deviceId === selectedDeviceConfig.value?.deviceId)
@@ -1465,27 +1095,36 @@ const loadData = async () => {
         applySelectedDeviceConfig(selected);
       }
     } else if (props.module === 'media') {
-      const [mediaRes, uploadTasksRes] = await Promise.all([listPatrolMedia(), listPatrolMediaUploadTasks()]);
-      mediaFiles.value = mediaRes.data;
-      mediaUploadTasks.value = uploadTasksRes.data;
+      const [mediaRes, uploadTasksRes] = await Promise.all([
+        listPatrolMedia(toPageParams(mediaPager)),
+        listPatrolMediaUploadTasks(toPageParams(mediaUploadTaskPager))
+      ]);
+      mediaFiles.value = readPageItems(mediaRes.data, mediaPager);
+      mediaUploadTasks.value = readPageItems(uploadTasksRes.data, mediaUploadTaskPager);
     } else if (props.module === 'reports') {
-      dailyReports.value = (await listPatrolDailyReports({ status: reportStatusFilter.value })).data;
+      dailyReports.value = readPageItems(
+        (await listPatrolDailyReports({ ...toPageParams(dailyReportPager), status: reportStatusFilter.value })).data,
+        dailyReportPager
+      );
       activeDailyReport.value = activeDailyReport.value
         ? dailyReports.value.find((item) => item.reportId === activeDailyReport.value?.reportId)
         : dailyReports.value[0];
     } else if (props.module === 'sos') {
-      sosEvents.value = (await listPatrolSos()).data;
+      sosEvents.value = readPageItems((await listPatrolSos(toPageParams(sosPager))).data, sosPager);
       if (sosEvents.value.length > 0) {
         sosTimeline.value = (await listPatrolSosTimeline(sosEvents.value[0].sosId)).data;
       } else {
         sosTimeline.value = [];
       }
     } else if (props.module === 'control') {
-      const [personsRes, vehiclesRes] = await Promise.all([listControlPersons(), listControlVehicles()]);
-      controlPersons.value = personsRes.data;
-      controlVehicles.value = vehiclesRes.data;
+      const [personsRes, vehiclesRes] = await Promise.all([
+        listControlPersons(toPageParams(controlPersonPager)),
+        listControlVehicles(toPageParams(controlVehiclePager))
+      ]);
+      controlPersons.value = readPageItems(personsRes.data, controlPersonPager);
+      controlVehicles.value = readPageItems(vehiclesRes.data, controlVehiclePager);
     } else if (props.module === 'messages') {
-      messages.value = (await listPatrolMessages()).data;
+      messages.value = readPageItems((await listPatrolMessages(toPageParams(messagePager))).data, messagePager);
       if (messages.value.length > 0) {
         messageReceipts.value = (await listPatrolMessageReceipts(messages.value[0].messageId)).data;
       } else {
@@ -1494,16 +1133,16 @@ const loadData = async () => {
     } else if (props.module === 'statistics') {
       statistics.value = (await getStatisticsOverview()).data;
     } else if (props.module === 'audit') {
-      auditLogs.value = (await listSystemAuditLogs()).data;
+      auditLogs.value = readPageItems((await listSystemAuditLogs(toPageParams(auditPager))).data, auditPager);
     } else if (props.module === 'operations') {
       const [appVersionsRes, firmwareVersionsRes, firmwareTasksRes] = await Promise.all([
-        listAppVersions(),
-        listFirmwareVersions(),
-        listFirmwareUpgradeTasks()
+        listAppVersions(toPageParams(appVersionPager)),
+        listFirmwareVersions(toPageParams(firmwareVersionPager)),
+        listFirmwareUpgradeTasks(toPageParams(firmwareTaskPager))
       ]);
-      appVersions.value = appVersionsRes.data;
-      firmwareVersions.value = firmwareVersionsRes.data;
-      firmwareUpgradeTasks.value = firmwareTasksRes.data;
+      appVersions.value = readPageItems(appVersionsRes.data, appVersionPager);
+      firmwareVersions.value = readPageItems(firmwareVersionsRes.data, firmwareVersionPager);
+      firmwareUpgradeTasks.value = readPageItems(firmwareTasksRes.data, firmwareTaskPager);
     }
   } finally {
     loading.value = false;
@@ -1891,31 +1530,8 @@ const toErrorMessage = (error: unknown) => {
   return String(error);
 };
 
-const handleAck = async (alertId: string) => {
-  await acknowledgeAlert(alertId);
-  ElMessage.success('预警已确认');
-  loadData();
-};
-
-const handleClose = async (alertId: string) => {
-  await closeAlert(alertId, 'RESOLVED', '平台端处置闭环');
-  ElMessage.success('预警已关闭');
-  loadData();
-};
-
-const handleLoadAlertDispositions = async (alertId: string) => {
-  alertDispositions.value = (await listAlertDispositions(alertId)).data;
-};
-
-const handleSendMessage = async () => {
-  await sendPatrolMessage({ ...messageForm });
-  ElMessage.success('指挥消息已发送');
-  await loadData();
-};
-
-const handleLoadMessageReceipts = async (messageId: string) => {
-  messageReceipts.value = (await listPatrolMessageReceipts(messageId)).data;
-};
+const { handleAck, handleClose, handleLoadAlertDispositions } = useAlertDispositionActions(alertDispositions, loadData);
+const { handleSendMessage, handleLoadMessageReceipts } = useCommandMessageActions(messageForm, messageReceipts, loadData);
 
 const handleLoadTrack = async (badgeNo: string) => {
   trackPoints.value = (await listOfficerTrack(badgeNo)).data;
@@ -1986,107 +1602,22 @@ const applyAreaToMap = async () => {
   await renderOfficerMap();
 };
 
-const handleVerifyMedia = async (fileId: string) => {
-  const result = (await verifyPatrolMedia(fileId)).data;
-  ElMessage.success(result.message);
-  await loadData();
-};
-
-const handlePreviewMedia = async (row: PatrolMedia) => {
-  clearMediaPreview();
-  const blob = (await downloadPatrolMedia(row.fileId)) as unknown as Blob;
-  mediaPreview.visible = true;
-  mediaPreview.title = row.fileName;
-  mediaPreview.kind = row.mediaType;
-  mediaPreview.url = URL.createObjectURL(blob);
-  mediaPreview.sha256 = row.sha256 || '';
-  mediaPreview.watermarkToken = row.watermarkToken || '';
-};
-
-const handleDownloadMedia = async (row: PatrolMedia) => {
-  const blob = (await downloadPatrolMedia(row.fileId)) as unknown as Blob;
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = row.fileName || `${row.fileId}.bin`;
-  link.click();
-  URL.revokeObjectURL(url);
-};
-
-const handleDeleteMedia = async (fileId: string) => {
-  const result = (await deletePatrolMedia(fileId)).data;
-  if (result.status === 'DELETED') {
-    ElMessage.success(result.message);
-  } else {
-    ElMessage.warning(result.message);
-  }
-  await loadData();
-};
-
-const handleCleanUploadTasks = async () => {
-  const result = (await cleanPatrolMediaUploadTasks()).data;
-  ElMessage.success(`${result.message}：${result.cleaned}`);
-  await loadData();
-};
-
-const handleLoadSosTimeline = async (sosId: string) => {
-  sosTimeline.value = (await listPatrolSosTimeline(sosId)).data;
-};
-
-const handleAssignSosBackup = async (sosId: string) => {
-  const result = (
-    await assignPatrolSosBackup(sosId, {
-      contactName: '巡逻组 A-42',
-      contactPhone: '110-PTL-A42',
-      backupEtaMinutes: 5,
-      note: '已指派最近警力前往增援'
-    })
-  ).data;
-  ElMessage.success(result.message);
-  await handleLoadSosTimeline(sosId);
-  await loadData();
-};
-
-const handleNotifySos = async (sosId: string) => {
-  const result = (
-    await notifyPatrolSosContact(sosId, {
-      contactName: '值班指挥员',
-      contactPhone: '0591-110000',
-      note: '已同步SOS位置和现场状态'
-    })
-  ).data;
-  ElMessage.success(result.message);
-  await handleLoadSosTimeline(sosId);
-};
-
-const handleAddSosRecording = async (sosId: string) => {
-  const result = (
-    await addPatrolSosRecording(sosId, {
-      fileId: `SOS-AUD-${Date.now()}`,
-      fileName: 'SOS现场录音.m4a',
-      note: '已关联端侧SOS录音附件'
-    })
-  ).data;
-  ElMessage.success(result.message);
-  await handleLoadSosTimeline(sosId);
-};
-
-const handleAddSosNote = async (sosId: string) => {
-  const result = (await addPatrolSosNote(sosId, '平台端补充处置记录')).data;
-  ElMessage.success(result.message);
-  await handleLoadSosTimeline(sosId);
-};
-
-const handleCloseSos = async (sosId: string) => {
-  const result = (await closePatrolSos(sosId)).data;
-  if (result.status === 'CLOSED') {
-    ElMessage.success(result.message);
-  } else {
-    ElMessage.warning(result.message);
-  }
-  await handleLoadSosTimeline(sosId);
-  await loadData();
-};
+const {
+  clearMediaPreview,
+  handleVerifyMedia,
+  handlePreviewMedia,
+  handleDownloadMedia,
+  handleDeleteMedia,
+  handleCleanUploadTasks
+} = useMediaEvidenceActions(mediaPreview, loadData);
+const {
+  handleLoadSosTimeline,
+  handleAssignSosBackup,
+  handleNotifySos,
+  handleAddSosRecording,
+  handleAddSosNote,
+  handleCloseSos
+} = useSosDispositionActions(sosTimeline, loadData);
 
 const handleControlImportResult = async (result: ControlImportResult) => {
   controlImportResult.value = result;
@@ -2415,16 +1946,6 @@ const clearMapMarkers = () => {
   }
 };
 
-const clearMediaPreview = () => {
-  if (mediaPreview.url) {
-    URL.revokeObjectURL(mediaPreview.url);
-  }
-  mediaPreview.url = '';
-  mediaPreview.title = '';
-  mediaPreview.sha256 = '';
-  mediaPreview.watermarkToken = '';
-};
-
 const escapeHtml = (value: unknown) => {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -2637,17 +2158,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.face-thumb {
-  width: 32px;
-  height: 32px;
-  border-radius: 4px;
-  background: #f3f4f6;
-}
-
-.inline-upload {
-  display: inline-flex;
-}
-
 .video-tile {
   min-height: 260px;
   margin-bottom: 12px;
@@ -2738,25 +2248,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
   font-weight: 500;
   text-align: center;
-}
-
-.media-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.media-preview img,
-.media-preview video {
-  width: 100%;
-  max-height: 420px;
-  border-radius: 6px;
-  background: #111827;
-  object-fit: contain;
-}
-
-.media-preview audio {
-  width: 100%;
 }
 
 .report-content-editor {

@@ -1,6 +1,7 @@
 import { createWebHistory, createRouter, RouteRecordRaw } from 'vue-router';
 /* Layout */
 import Layout from '@/layout/index.vue';
+import ParentView from '@/components/ParentView/index.vue';
 
 /**
  * Note: 路由配置项
@@ -127,9 +128,30 @@ export const constantRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'media',
-        component: () => import('@/views/patrol/media/index.vue'),
+        component: ParentView,
         name: 'PatrolMedia',
-        meta: { title: '媒体证据', icon: 'upload' }
+        redirect: '/patrol/media/overview',
+        meta: { title: '媒体证据', icon: 'upload' },
+        children: [
+          {
+            path: 'overview',
+            component: () => import('@/views/patrol/media/index.vue'),
+            name: 'PatrolMediaOverview',
+            meta: { title: '媒体总览', icon: 'upload' }
+          },
+          {
+            path: 'evidence',
+            component: () => import('@/views/patrol/media/evidence/index.vue'),
+            name: 'PatrolMediaEvidence',
+            meta: { title: '证据库', icon: 'documentation' }
+          },
+          {
+            path: 'upload-tasks',
+            component: () => import('@/views/patrol/media/upload-tasks/index.vue'),
+            name: 'PatrolMediaUploadTasks',
+            meta: { title: '上传任务', icon: 'list' }
+          }
+        ]
       },
       {
         path: 'reports',
@@ -145,15 +167,57 @@ export const constantRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'control',
-        component: () => import('@/views/patrol/control/index.vue'),
+        component: ParentView,
         name: 'PatrolControl',
-        meta: { title: '人员车辆布控', icon: 'peoples' }
+        redirect: '/patrol/control/overview',
+        meta: { title: '人员车辆布控', icon: 'peoples' },
+        children: [
+          {
+            path: 'overview',
+            component: () => import('@/views/patrol/control/index.vue'),
+            name: 'PatrolControlOverview',
+            meta: { title: '布控总览', icon: 'peoples' }
+          },
+          {
+            path: 'persons',
+            component: () => import('@/views/patrol/control/persons/index.vue'),
+            name: 'PatrolControlPersons',
+            meta: { title: '人员布控', icon: 'user' }
+          },
+          {
+            path: 'vehicles',
+            component: () => import('@/views/patrol/control/vehicles/index.vue'),
+            name: 'PatrolControlVehicles',
+            meta: { title: '车辆布控', icon: 'phone' }
+          }
+        ]
       },
       {
         path: 'messages',
-        component: () => import('@/views/patrol/messages/index.vue'),
+        component: ParentView,
         name: 'PatrolMessages',
-        meta: { title: '消息通知', icon: 'message' }
+        redirect: '/patrol/messages/overview',
+        meta: { title: '消息通知', icon: 'message' },
+        children: [
+          {
+            path: 'overview',
+            component: () => import('@/views/patrol/messages/index.vue'),
+            name: 'PatrolMessagesOverview',
+            meta: { title: '消息总览', icon: 'message' }
+          },
+          {
+            path: 'send',
+            component: () => import('@/views/patrol/messages/send/index.vue'),
+            name: 'PatrolMessagesSend',
+            meta: { title: '发送消息', icon: 'edit' }
+          },
+          {
+            path: 'history',
+            component: () => import('@/views/patrol/messages/history/index.vue'),
+            name: 'PatrolMessagesHistory',
+            meta: { title: '消息流水', icon: 'list' }
+          }
+        ]
       },
       {
         path: 'statistics',
@@ -169,9 +233,42 @@ export const constantRoutes: RouteRecordRaw[] = [
       },
       {
         path: 'operations',
-        component: () => import('@/views/patrol/operations/index.vue'),
+        component: ParentView,
         name: 'PatrolOperations',
-        meta: { title: '运维能力', icon: 'server' }
+        redirect: '/patrol/operations/overview',
+        meta: { title: '运维监控', icon: 'server' },
+        children: [
+          {
+            path: 'overview',
+            component: () => import('@/views/patrol/operations/index.vue'),
+            name: 'PatrolOperationsOverview',
+            meta: { title: '运维总览', icon: 'server' }
+          },
+          {
+            path: 'app-versions',
+            component: () => import('@/views/patrol/operations/app-versions/index.vue'),
+            name: 'PatrolOperationAppVersions',
+            meta: { title: 'App 版本', icon: 'upload' }
+          },
+          {
+            path: 'firmware-versions',
+            component: () => import('@/views/patrol/operations/firmware-versions/index.vue'),
+            name: 'PatrolOperationFirmwareVersions',
+            meta: { title: '设备固件', icon: 'build' }
+          },
+          {
+            path: 'firmware-upgrade-tasks',
+            component: () => import('@/views/patrol/operations/firmware-upgrade-tasks/index.vue'),
+            name: 'PatrolOperationFirmwareUpgradeTasks',
+            meta: { title: '升级记录', icon: 'list' }
+          },
+          {
+            path: 'capabilities',
+            component: () => import('@/views/patrol/operations/capabilities/index.vue'),
+            name: 'PatrolOperationCapabilities',
+            meta: { title: '能力监控', icon: 'monitor' }
+          }
+        ]
       }
     ]
   },

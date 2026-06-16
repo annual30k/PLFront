@@ -36,6 +36,8 @@ import {
   PatrolDevice,
   PatrolDeviceCommand,
   PatrolDeviceEvent,
+  PageEnvelope,
+  PageParams,
   PatrolMedia,
   PatrolMediaAction,
   PatrolCleanupResult,
@@ -57,17 +59,19 @@ export const getPatrolDashboard = (): AxiosPromise<DashboardSummary> => {
   });
 };
 
-export const listPatrolDevices = (): AxiosPromise<PatrolDevice[]> => {
+export const listPatrolDevices = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolDevice>> => {
   return request({
     url: '/patrol/devices',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
-export const listDeviceConfigs = (): AxiosPromise<DeviceConfig[]> => {
+export const listDeviceConfigs = (params?: PageParams): AxiosPromise<PageEnvelope<DeviceConfig>> => {
   return request({
     url: '/patrol/devices/configs',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -127,17 +131,19 @@ export const sendDeviceCommand = (deviceId: string, command: string) => {
   });
 };
 
-export const listDeviceCommands = (): AxiosPromise<PatrolDeviceCommand[]> => {
+export const listDeviceCommands = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolDeviceCommand>> => {
   return request({
     url: '/patrol/devices/commands',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
-export const listDeviceEvents = (): AxiosPromise<PatrolDeviceEvent[]> => {
+export const listDeviceEvents = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolDeviceEvent>> => {
   return request({
     url: '/patrol/devices/events',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -238,10 +244,11 @@ export const savePatrolArea = (data: PatrolArea): AxiosPromise<PatrolArea> => {
   });
 };
 
-export const listPatrolAlerts = (): AxiosPromise<PatrolAlert[]> => {
+export const listPatrolAlerts = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolAlert>> => {
   return request({
     url: '/patrol/alerts',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -267,17 +274,19 @@ export const listAlertDispositions = (alertId: string): AxiosPromise<PatrolAlert
   });
 };
 
-export const listPatrolMedia = (): AxiosPromise<PatrolMedia[]> => {
+export const listPatrolMedia = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolMedia>> => {
   return request({
     url: '/patrol/media',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
-export const listPatrolMediaUploadTasks = (): AxiosPromise<PatrolMediaUploadTask[]> => {
+export const listPatrolMediaUploadTasks = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolMediaUploadTask>> => {
   return request({
     url: '/patrol/media/upload-tasks',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -302,7 +311,7 @@ export const deletePatrolMedia = (fileId: string): AxiosPromise<PatrolMediaActio
   });
 };
 
-export const listPatrolDailyReports = (params?: { missionId?: string; status?: string }): AxiosPromise<PatrolDailyReport[]> => {
+export const listPatrolDailyReports = (params?: PageParams & { missionId?: string; status?: string }): AxiosPromise<PageEnvelope<PatrolDailyReport>> => {
   return request({
     url: '/patrol/daily-reports',
     method: 'get',
@@ -334,10 +343,11 @@ export const downloadPatrolMedia = (fileId: string) => {
   });
 };
 
-export const listAppVersions = (): AxiosPromise<AppVersion[]> => {
+export const listAppVersions = (params?: PageParams): AxiosPromise<PageEnvelope<AppVersion>> => {
   return request({
     url: '/patrol/versions',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -368,10 +378,11 @@ export const updateAppVersionStatus = (versionId: string, status: string): Axios
   });
 };
 
-export const listFirmwareVersions = (): AxiosPromise<FirmwareVersion[]> => {
+export const listFirmwareVersions = (params?: PageParams): AxiosPromise<PageEnvelope<FirmwareVersion>> => {
   return request({
     url: '/patrol/firmware-versions',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -402,17 +413,19 @@ export const updateFirmwareVersionStatus = (firmwareId: string, status: string):
   });
 };
 
-export const listFirmwareUpgradeTasks = (): AxiosPromise<FirmwareUpgradeTask[]> => {
+export const listFirmwareUpgradeTasks = (params?: PageParams): AxiosPromise<PageEnvelope<FirmwareUpgradeTask>> => {
   return request({
     url: '/patrol/firmware-upgrade-tasks',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
-export const listPatrolSos = (): AxiosPromise<PatrolSos[]> => {
+export const listPatrolSos = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolSos>> => {
   return request({
     url: '/patrol/sos',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -468,10 +481,11 @@ export const closePatrolSos = (sosId: string): AxiosPromise<PatrolSosAction> => 
   });
 };
 
-export const listControlPersons = (): AxiosPromise<ControlPerson[]> => {
+export const listControlPersons = (params?: PageParams): AxiosPromise<PageEnvelope<ControlPerson>> => {
   return request({
     url: '/patrol/control/persons',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -524,10 +538,11 @@ export const importControlPersons = (file: File): AxiosPromise<ControlImportResu
   });
 };
 
-export const listControlVehicles = (): AxiosPromise<ControlVehicle[]> => {
+export const listControlVehicles = (params?: PageParams): AxiosPromise<PageEnvelope<ControlVehicle>> => {
   return request({
     url: '/patrol/control/vehicles',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -558,10 +573,11 @@ export const importControlVehicles = (file: File): AxiosPromise<ControlImportRes
   });
 };
 
-export const listPatrolMessages = (): AxiosPromise<PatrolMessage[]> => {
+export const listPatrolMessages = (params?: PageParams): AxiosPromise<PageEnvelope<PatrolMessage>> => {
   return request({
     url: '/patrol/messages',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
@@ -587,10 +603,11 @@ export const getStatisticsOverview = (): AxiosPromise<StatisticsOverview> => {
   });
 };
 
-export const listSystemAuditLogs = (): AxiosPromise<SystemAuditLog[]> => {
+export const listSystemAuditLogs = (params?: PageParams): AxiosPromise<PageEnvelope<SystemAuditLog>> => {
   return request({
     url: '/patrol/system/audit-logs',
-    method: 'get'
+    method: 'get',
+    params
   });
 };
 
