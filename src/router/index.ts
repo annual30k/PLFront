@@ -29,8 +29,8 @@ import ParentView from '@/components/ParentView/index.vue';
 export const constantRoutes: RouteRecordRaw[] = [
   {
     path: '/patrol/dispatch',
-    component: () => import('@/views/patrol/video-wall/index.vue'),
-    meta: { public: true, title: '指挥调度' },
+    redirect: '/patrol/video-wall',
+    meta: { public: true, title: '电视墙' },
     hidden: true
   },
   {
@@ -103,10 +103,10 @@ export const constantRoutes: RouteRecordRaw[] = [
         meta: { title: '工作台', icon: 'dashboard' }
       },
       {
-        path: 'dispatch',
-        component: () => import('@/views/patrol/dispatch/index.vue'),
-        name: 'PatrolDispatch',
-        meta: { title: '指挥调度', icon: 'fullscreen' }
+        path: 'video-wall',
+        component: () => import('@/views/patrol/video-wall/index.vue'),
+        name: 'PatrolVideoWall',
+        meta: { title: '电视墙', icon: 'component' }
       },
       {
         path: 'map',

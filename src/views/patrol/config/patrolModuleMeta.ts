@@ -2,7 +2,7 @@ import type { ModuleKey } from '@/api/patrol/types';
 
 export const patrolModuleMeta: Record<ModuleKey, { title: string; desc: string }> = {
   dashboard: { title: '指挥工作台', desc: '聚合在线警力、设备、视频会话、预警、SOS 与媒体上传状态。' },
-  dispatch: { title: '指挥调度', desc: '视频墙保留，实时对讲走 WebRTC/VoIP，App 使用系统蓝牙 Headset/SCO/A2DP 作为麦克风和扬声器。' },
+  dispatch: { title: '电视墙', desc: '视频墙保留，实时对讲走 WebRTC/VoIP，App 使用系统蓝牙 Headset/SCO/A2DP 作为麦克风和扬声器。' },
   map: { title: '警力一张图', desc: '基于高德地图接入实时位置，设备最新点按 3 秒周期刷新。' },
   alerts: { title: '布控预警', desc: '接收第三方人脸比对和车牌 OCR 结果，形成预警处置闭环。' },
   devices: { title: '设备管理', desc: '管理智能执法耳机台账、绑定关系、在线状态、电量、固件和指令。' },
