@@ -10,7 +10,7 @@
       <aside class="side-column left-column">
         <DeviceOverviewPanel :metrics="deviceOverview" />
         <AlarmStatisticsPanel :metrics="alarmSummary" />
-        <AlarmTrendPanel :bars="trendBars" :labels="trendLabels" />
+        <PointTypePanel />
       </aside>
 
       <section class="center-stage">
@@ -41,6 +41,7 @@ import WallHeader from './components/WallHeader.vue';
 import DeviceOverviewPanel from './components/DeviceOverviewPanel.vue';
 import AlarmStatisticsPanel from './components/AlarmStatisticsPanel.vue';
 import AlarmTrendPanel from './components/AlarmTrendPanel.vue';
+import PointTypePanel from './components/PointTypePanel.vue';
 import IntelligentAnalysisPanel from './components/IntelligentAnalysisPanel.vue';
 import StorageStatusPanel from './components/StorageStatusPanel.vue';
 import LayoutTabs from './components/LayoutTabs.vue';
