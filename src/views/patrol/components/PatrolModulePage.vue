@@ -172,6 +172,33 @@
                   </el-form-item>
                 </el-col>
               </el-row>
+              <el-row :gutter="8">
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="归属">
+                    <el-radio-group v-model="areaForm.ownerType">
+                      <el-radio-button label="TEAM">小组</el-radio-button>
+                      <el-radio-button label="USER">个人</el-radio-button>
+                    </el-radio-group>
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="组ID">
+                    <el-input v-model="areaForm.teamId" placeholder="填写部门ID，组员共享该范围" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+              <el-row v-if="areaForm.ownerType === 'USER'" :gutter="8">
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="用户ID">
+                    <el-input v-model="areaForm.userId" placeholder="个人范围优先按用户ID匹配" />
+                  </el-form-item>
+                </el-col>
+                <el-col :xs="24" :sm="12">
+                  <el-form-item label="警号">
+                    <el-input v-model="areaForm.badgeNo" placeholder="用户ID为空时按警号匹配" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
               <el-form-item label="边界点">
                 <el-input v-model="areaBoundaryText" type="textarea" :rows="5" />
               </el-form-item>
@@ -1221,6 +1248,9 @@ const areaForm = reactive<PatrolArea>({
   areaName: '五四路核心勤务区',
   teamId: 'PTL-GROUP-A',
   teamName: '第一巡逻支队 A 组',
+  ownerType: 'TEAM',
+  userId: '',
+  badgeNo: '',
   boundary: [],
   route: [],
   updatedAt: ''
@@ -1925,6 +1955,14 @@ const handleSavePatrolArea = async () => {
   }
   if (route.length < 2) {
     ElMessage.warning('路线至少需要 2 个点');
+    return;
+  }
+  if (areaForm.ownerType === 'TEAM' && !areaForm.teamId?.trim()) {
+    ElMessage.warning('小组范围必须填写组ID');
+    return;
+  }
+  if (areaForm.ownerType === 'USER' && !areaForm.userId?.trim() && !areaForm.badgeNo?.trim()) {
+    ElMessage.warning('个人范围必须填写用户ID或警号');
     return;
   }
   const saved = (

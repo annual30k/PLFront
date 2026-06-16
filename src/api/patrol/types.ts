@@ -208,6 +208,9 @@ export interface PatrolArea {
   areaName: string;
   teamId: string;
   teamName: string;
+  ownerType: 'USER' | 'TEAM';
+  userId?: string;
+  badgeNo?: string;
   boundary: PatrolGeoPoint[];
   route: PatrolGeoPoint[];
   updatedAt: string;
