@@ -142,6 +142,7 @@ export const useVideoWallData = () => {
     analysisMetrics,
     storagePercent,
     feedModels,
+    officers,
     trendBars,
     trendLabels,
     patrolArea,

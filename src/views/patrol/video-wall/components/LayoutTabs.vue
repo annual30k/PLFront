@@ -4,13 +4,13 @@
     <button
       v-for="item in layoutOptions"
       :key="item"
-      :class="{ active: modelValue === item }"
+      :class="{ active: mode === 'wall' && modelValue === item }"
       type="button"
-      @click="$emit('update:modelValue', item)"
+      @click="$emit('update:mode', 'wall'); $emit('update:modelValue', item)"
     >
       {{ item }}路
     </button>
-    <a href="/patrol/map">电子地图</a>
+    <button type="button" :class="{ active: mode === 'map' }" @click="$emit('update:mode', 'map')">电子地图</button>
   </div>
 </template>
 
@@ -19,10 +19,12 @@ const layoutOptions = [4, 8, 16];
 
 defineProps<{
   modelValue: number;
+  mode: 'wall' | 'map';
 }>();
 
 defineEmits<{
   'update:modelValue': [value: number];
+  'update:mode': [value: 'wall' | 'map'];
 }>();
 </script>
 
@@ -57,8 +59,7 @@ defineEmits<{
   z-index: 1;
 }
 
-button,
-a {
+button {
   min-width: clamp(64px, 5.46vw, 84px);
   height: clamp(28px, 3.7vh, 32px);
   border: 1px solid rgba(37, 99, 235, 0.9);
@@ -68,10 +69,6 @@ a {
   line-height: calc(clamp(28px, 3.7vh, 32px) - 2px);
   font-size: clamp(12px, 0.88vw, 14px);
   box-shadow: inset 0 0 14px rgba(37, 99, 235, 0.18);
-}
-
-a {
-  text-decoration: none;
 }
 
 .active {

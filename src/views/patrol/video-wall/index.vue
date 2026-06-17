@@ -6,16 +6,34 @@
       :time="currentTime"
     />
 
-    <section class="wall-layout">
-      <aside class="side-column left-column">
+    <section
+      class="wall-layout"
+      :class="{
+        'left-collapsed': leftCollapsed,
+        'right-collapsed': rightCollapsed,
+        'map-active': screenMode === 'map'
+      }"
+    >
+      <aside class="side-column left-column" :class="{ collapsed: leftCollapsed }">
         <DeviceOverviewPanel :metrics="deviceOverview" />
         <AlarmStatisticsPanel :metrics="alarmSummary" />
         <PointTypePanel />
       </aside>
 
-      <section class="center-stage">
-        <LayoutTabs v-model="layoutCount" />
-        <div class="video-grid" :class="`grid-${layoutCount}`">
+      <button
+        class="collapse-handle collapse-left"
+        type="button"
+        :aria-label="leftCollapsed ? '展开看板' : '收起看板'"
+        @mousedown.prevent
+        @click="toggleLeftPanel"
+      >
+        <span>{{ leftCollapsed ? '›' : '‹' }}</span>
+        <em>{{ leftCollapsed ? '»' : '«' }}</em>
+      </button>
+
+      <section class="center-stage" :class="{ 'map-mode': screenMode === 'map' }">
+        <LayoutTabs v-if="screenMode === 'wall'" v-model="layoutCount" v-model:mode="screenMode" />
+        <div v-if="screenMode === 'wall'" class="video-grid" :class="`grid-${layoutCount}`">
           <VideoFeedCard
             v-for="(feed, index) in visibleFeeds"
             :key="feed.id"
@@ -24,9 +42,28 @@
             :timestamp="`${currentDate} ${currentTime}`"
           />
         </div>
+        <MapScreen
+          v-else
+          ref="mapScreenRef"
+          :officers="officers"
+          :patrol-area="patrolArea"
+          :feeds="feedModels"
+          @select-wall="selectWallLayout"
+        />
       </section>
 
-      <aside class="side-column right-column">
+      <button
+        class="collapse-handle collapse-right"
+        type="button"
+        :aria-label="rightCollapsed ? '展开看板' : '收起看板'"
+        @mousedown.prevent
+        @click="toggleRightPanel"
+      >
+        <span>{{ rightCollapsed ? '‹' : '›' }}</span>
+        <em>{{ rightCollapsed ? '«' : '»' }}</em>
+      </button>
+
+      <aside class="side-column right-column" :class="{ collapsed: rightCollapsed }">
         <AlarmTrendPanel :bars="trendBars" :labels="trendLabels" />
         <IntelligentAnalysisPanel :metrics="analysisMetrics" />
         <StorageStatusPanel :percent="storagePercent" />
@@ -46,9 +83,16 @@ import IntelligentAnalysisPanel from './components/IntelligentAnalysisPanel.vue'
 import StorageStatusPanel from './components/StorageStatusPanel.vue';
 import LayoutTabs from './components/LayoutTabs.vue';
 import VideoFeedCard from './components/VideoFeedCard.vue';
+import MapScreen from './components/MapScreen.vue';
 import { useVideoWallData } from './composables/useVideoWallData';
 
+type ScreenMode = 'wall' | 'map';
+
 const layoutCount = ref(4);
+const screenMode = ref<ScreenMode>('wall');
+const leftCollapsed = ref(false);
+const rightCollapsed = ref(false);
+const mapScreenRef = ref<InstanceType<typeof MapScreen>>();
 
 const {
   currentDate,
@@ -59,11 +103,34 @@ const {
   analysisMetrics,
   storagePercent,
   feedModels,
+  officers,
   trendBars,
-  trendLabels
+  trendLabels,
+  patrolArea
 } = useVideoWallData();
 
 const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value));
+
+const resizeMap = () => {
+  window.setTimeout(() => mapScreenRef.value?.resize(), 320);
+};
+
+const toggleLeftPanel = (event: MouseEvent) => {
+  leftCollapsed.value = !leftCollapsed.value;
+  (event.currentTarget as HTMLButtonElement).blur();
+  resizeMap();
+};
+
+const toggleRightPanel = (event: MouseEvent) => {
+  rightCollapsed.value = !rightCollapsed.value;
+  (event.currentTarget as HTMLButtonElement).blur();
+  resizeMap();
+};
+
+const selectWallLayout = (count: number) => {
+  layoutCount.value = count;
+  screenMode.value = 'wall';
+};
 </script>
 
 <style scoped lang="scss">
@@ -77,6 +144,8 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   --content-pad-bottom: clamp(8px, 0.78vw, 12px);
   --panel-pad-x: clamp(8px, 0.78vw, 12px);
   --panel-pad-y: clamp(7px, 0.72vw, 10px);
+  --collapse-gap: 16px;
+  --collapsed-rail-width: 8px;
   --metric-height: clamp(42px, 5.8vh, 62px);
   --metric-value-size: clamp(21px, 1.76vw, 36px);
   --donut-size: clamp(76px, 5.8vw, 116px);
@@ -119,6 +188,19 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   grid-template-columns: var(--side-width) minmax(0, 1fr) var(--side-width);
   gap: var(--layout-gap);
   background: #010715;
+  transition: grid-template-columns 240ms ease;
+}
+
+.wall-layout.left-collapsed {
+  grid-template-columns: var(--collapsed-rail-width) minmax(0, 1fr) var(--side-width);
+}
+
+.wall-layout.right-collapsed {
+  grid-template-columns: var(--side-width) minmax(0, 1fr) var(--collapsed-rail-width);
+}
+
+.wall-layout.left-collapsed.right-collapsed {
+  grid-template-columns: var(--collapsed-rail-width) minmax(0, 1fr) var(--collapsed-rail-width);
 }
 
 .side-column,
@@ -132,6 +214,28 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   margin: 0;
   padding: 0;
   background: #010715;
+  opacity: 1;
+  transform: translateX(0);
+  filter: none;
+  transition:
+    opacity 260ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 260ms ease;
+  will-change: opacity, transform;
+}
+
+.side-column.collapsed {
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(1px);
+}
+
+.left-column.collapsed {
+  transform: translateX(calc(-100% - var(--layout-gap)));
+}
+
+.right-column.collapsed {
+  transform: translateX(calc(100% + var(--layout-gap)));
 }
 
 .left-column {
@@ -147,6 +251,153 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   grid-template-rows: 48px minmax(0, 1fr);
   gap: 8px;
   background: #010715;
+}
+
+.center-stage.map-mode {
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wall-layout.map-active {
+  margin: 0;
+  height: calc(100vh - var(--header-height));
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  background: transparent;
+}
+
+.wall-layout.map-active .center-stage {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+.wall-layout.map-active .center-stage :deep(.wall-map-screen) {
+  width: 100%;
+  height: 100%;
+}
+
+.wall-layout.map-active .side-column {
+  position: absolute;
+  z-index: 30;
+  top: var(--layout-gap);
+  bottom: var(--content-pad-bottom);
+  width: var(--side-width);
+}
+
+.wall-layout.map-active .left-column {
+  left: var(--content-pad-x);
+}
+
+.wall-layout.map-active .right-column {
+  right: var(--content-pad-x);
+}
+
+.wall-layout.map-active .collapse-handle {
+  z-index: 40;
+}
+
+.collapse-handle {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  color: #eff6ff;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  opacity: 1;
+  transform: translateY(-50%);
+  transition:
+    opacity 160ms ease,
+    transform 180ms ease,
+    left 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+
+.collapse-handle::before,
+.collapse-handle::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+.collapse-handle::before {
+  display: none;
+}
+
+.collapse-handle::after {
+  display: none;
+}
+
+.collapse-handle:hover {
+  transform: translateY(-50%) scale(1.01);
+}
+
+.collapse-handle span {
+  display: none;
+}
+
+.collapse-handle em {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  color: rgba(206, 230, 245, 0.72);
+  text-shadow: 0 0 8px rgba(147, 197, 253, 0.72);
+  font-size: 30px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%);
+  animation: none;
+  transition: opacity 160ms ease;
+}
+
+.collapse-handle:hover em {
+  opacity: 0.86;
+  animation: side-chevron-flow 1.25s ease-in-out infinite;
+}
+
+.collapse-left {
+  left: calc(var(--side-width) + var(--collapse-gap) - 36px);
+}
+
+.left-collapsed .collapse-left {
+  left: calc(var(--collapsed-rail-width) - 36px);
+}
+
+.collapse-left em {
+  right: 22px;
+}
+
+.collapse-right {
+  right: calc(var(--side-width) + var(--collapse-gap) - 36px);
+}
+
+.right-collapsed .collapse-right {
+  right: calc(var(--collapsed-rail-width) - 36px);
+}
+
+.collapse-right em {
+  left: 22px;
+}
+
+.collapse-right:hover em {
+  animation-name: side-chevron-flow-reverse;
 }
 
 .video-grid {
@@ -197,11 +448,20 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
   .left-column {
     grid-template-rows: 0.76fr 0.98fr 0.78fr;
   }
+
 }
 
 @media (max-width: 1200px) {
   .wall-layout {
     grid-template-columns: minmax(220px, 25vw) minmax(0, 1fr) minmax(220px, 25vw);
+  }
+
+  .wall-layout.left-collapsed {
+    grid-template-columns: var(--collapsed-rail-width) minmax(0, 1fr) minmax(220px, 25vw);
+  }
+
+  .wall-layout.right-collapsed {
+    grid-template-columns: minmax(220px, 25vw) minmax(0, 1fr) var(--collapsed-rail-width);
   }
 }
 
@@ -223,6 +483,50 @@ const visibleFeeds = computed(() => feedModels.value.slice(0, layoutCount.value)
     --metric-height: 34px;
     --donut-size: 60px;
     --metric-value-size: 18px;
+  }
+}
+
+@keyframes arrow-nudge-left {
+  0%,
+  100% {
+    transform: translateX(3px);
+  }
+  50% {
+    transform: translateX(-4px);
+  }
+}
+
+@keyframes arrow-nudge-right {
+  0%,
+  100% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes side-chevron-flow {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    opacity: 0.86;
+    transform: translateY(-50%) translateX(7px);
+  }
+}
+
+@keyframes side-chevron-flow-reverse {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: translateY(-50%) translateX(0);
+  }
+  50% {
+    opacity: 0.86;
+    transform: translateY(-50%) translateX(-7px);
   }
 }
 </style>
