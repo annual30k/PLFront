@@ -284,6 +284,22 @@ const selectWallLayout = (count: number) => {
   height: 100%;
 }
 
+.wall-layout.map-active .center-stage :deep(.map-status) {
+  left: 0;
+  right: 0;
+  transition:
+    left 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    right 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wall-layout.map-active:not(.left-collapsed) .center-stage :deep(.map-status) {
+  left: calc(var(--content-pad-x) + var(--side-width) + var(--layout-gap));
+}
+
+.wall-layout.map-active:not(.right-collapsed) .center-stage :deep(.map-status) {
+  right: calc(var(--content-pad-x) + var(--side-width) + var(--layout-gap));
+}
+
 .wall-layout.map-active .side-column {
   position: absolute;
   z-index: 30;
