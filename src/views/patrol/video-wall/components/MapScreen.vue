@@ -1,18 +1,5 @@
 <template>
   <section class="wall-map-screen">
-    <div class="map-toolbar">
-      <div class="amap-brand">
-        <span>高德地图</span>
-        <small>AMap</small>
-      </div>
-      <div class="map-layer-tabs">
-        <button type="button" @click="emit('select-wall', 4)">4路</button>
-        <button type="button" @click="emit('select-wall', 8)">8路</button>
-        <button type="button" @click="emit('select-wall', 16)">16路</button>
-        <button class="active" type="button">电子地图</button>
-      </div>
-    </div>
-
     <div class="map-canvas-wrap">
       <div ref="mapContainerRef" class="amap-real-canvas"></div>
       <div class="map-tech-overlay"></div>
@@ -846,7 +833,7 @@ defineExpose({ resize });
 .map-search-panel {
   position: absolute;
   z-index: 5;
-  top: 64px;
+  top: 18px;
   left: 18px;
   width: 220px;
   border: 1px solid rgba(48, 127, 197, 0.58);
